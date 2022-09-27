@@ -1,0 +1,5 @@
+pyqt5
+librespot
+requests
+pydub
+music_tag
