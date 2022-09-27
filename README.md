@@ -1,10 +1,10 @@
-# onethespot
+# onthespot
 ![Screenshot](https://i.imgur.com/C4V94gy.png)
 qt based Spotify downloader written in python
 
 # Basic usage
 Make sure python3 is installed on your system
-  - Clone or download and extract the repository file: ```git clone https://github.com/casualsnek/onthespot```
+  - Clone or download and extract the repository file: ```git clone https://github.com/casualsnek/onethespot```
   - Navigate to the onthespot directory ```cd onthesport```
   - Install the dependencies with ```pip install -r requirements.txt```
   - Launch the application with ```python3 onthespot.py```
