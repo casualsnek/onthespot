@@ -1,4 +1,5 @@
 # onethespot
+![Screenshot](https://i.imgur.com/C4V94gy.png)
 qt based Spotify downloader written in python
 
 # Basic usage
