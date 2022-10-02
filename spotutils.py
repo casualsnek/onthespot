@@ -15,10 +15,14 @@ import queue
 from PyQt5.QtCore import QObject, pyqtSignal
 import traceback
 import pydub.exceptions
+from runtimedata import get_logger
 
+
+logger = get_logger("spotutils")
 requests.adapters.DEFAULT_RETRIES = 10
 
 def get_artist_albums(session, artist_id):
+    logger.info(f"Get albums for artist by id '{artist_id}'")
     access_token = session.tokens().get("user-read-email")
     headers = {'Authorization': f'Bearer {access_token}'}
     resp = requests.get(
@@ -26,6 +30,7 @@ def get_artist_albums(session, artist_id):
     return [resp['items'][i]['id'] for i in range(len(resp['items']))]
 
 def get_tracks_from_playlist(session, playlist_id):
+    logger.info(f"Get tracks from playlist by id '{playlist_id}'")
     songs = []
     offset = 0
     limit = 100
@@ -52,6 +57,7 @@ def sanitize_data(value):
     return value.replace("|", "-")
 
 def get_album_name(session, album_id):
+    logger.info(f"Get album info from album by id ''{album_id}'")
     access_token = session.tokens().get("user-read-email")
     headers = {'Authorization': f'Bearer {access_token}'}
     resp = requests.get(
@@ -62,6 +68,7 @@ def get_album_name(session, album_id):
 
 
 def get_album_tracks(session, album_id):
+    logger.info(f"Get tracks from album by id '{album_id}'")
     access_token = session.tokens().get("user-read-email")
     songs = []
     offset = 0
@@ -83,6 +90,7 @@ def get_album_tracks(session, album_id):
 
 
 def convert_audio_format(filename, quality):
+    logger.info(f"Converting audio media at '{filename}'")
     raw_audio = AudioSegment.from_file(filename, format="ogg",
                                        frame_rate=44100, channels=2, sample_width=2)
     if quality == AudioQuality.VERY_HIGH:
@@ -100,6 +108,7 @@ def conv_artist_format(artists):
 
 
 def set_audio_tags(filename, artists, name, album_name, release_year, disc_number, track_number, track_id_str):
+    logger.info(f"Setting tags for audio media at '{filename}', mediainfo -> '{str(artists)}, {name}, {album_name}, {release_year}, {disc_number}, {track_number}, {track_id_str}' ")
     tags = music_tag.load_file(filename)
     tags['artist'] = conv_artist_format(artists)
     tags['tracktitle'] = name
@@ -112,6 +121,7 @@ def set_audio_tags(filename, artists, name, album_name, release_year, disc_numbe
 
 
 def set_music_thumbnail(filename, image_url):
+    logger.info(f"Set thumbnail for audio media at '{filename}' with '{image_url}'")
     img = requests.get(image_url).content
     tags = music_tag.load_file(filename)
     tags['artwork'] = img
@@ -119,6 +129,7 @@ def set_music_thumbnail(filename, image_url):
 
 
 def search_by_term(session, search_term, max_results=20)->dict:
+    logger.info(f"Get search result for term '{search_term}', max items '{max_results}'")
     token = session.tokens().get("user-read-email")
     resp = requests.get(
         "https://api.spotify.com/v1/search",
@@ -137,6 +148,7 @@ def search_by_term(session, search_term, max_results=20)->dict:
             "artists": resp.json()["artists"]["items"],
         }
     if len(results["tracks"]) + len(results["albums"]) + len(results["artists"]) + len(results["playlists"]) == 0:
+        logger.debug(f"No results for term '{search_term}', max items '{max_results}'")
         raise EmptySearchResultException("No result found for search term '{}' ".format(search_term))
     else:
         return results
@@ -147,6 +159,7 @@ def check_premium(session):
 
 
 def get_song_info(session, song_id):
+    logger.info(f"Get track info for track by id '{song_id}'")
     token = session.tokens().get("user-read-email")
     info = json.loads(requests.get("https://api.spotify.com/v1/tracks?ids=" + song_id +
                     '&market=from_token', headers={"Authorization": "Bearer %s" % token}).text)
@@ -165,6 +178,7 @@ def get_song_info(session, song_id):
 
 
 def get_episode_info(session, episode_id_str):
+    logger.info(f"Get episode info for episode by id '{episode_id_str}'")
     token = session.tokens().get("user-read-email")
     info = json.loads(requests.get("https://api.spotify.com/v1/episodes/" +
                                    episode_id_str, headers={"Authorization": "Bearer %s" % token}).text)
@@ -176,6 +190,7 @@ def get_episode_info(session, episode_id_str):
 
 
 def get_show_episodes(session, show_id_str):
+    logger.info(f"Get episodes for show by id '{show_id_str}'")
     access_token = session.tokens().get("user-read-email")
     episodes = []
     offset = 0
@@ -200,6 +215,7 @@ class DownloadWorker(QObject):
     progress = pyqtSignal(list)
 
     def download_track(self, session, track_id_str, extra_paths="", prefix=False, prefix_value='',):
+        logger.debug(f"Downloading track by id '{track_id_str}', extra_paths: '{extra_paths}', prefix_value: '{prefix_value}' ")
         SKIP_EXISTING_FILES = True
         CHUNK_SIZE = config.get("chunk_size")
         quality = AudioQuality.HIGH
@@ -216,15 +232,18 @@ class DownloadWorker(QObject):
                 song_name = f'{_artist} - {album_name} - {name}.{config.get("media_format")}'
                 filename = os.path.join(config.get("download_root"), extra_paths, song_name)
         except Exception as e:
+            logger.error(f"Metadata fetching failed for track by id '{track_id_str}'")
             self.progress.emit([track_id_str, "Get metadata failed", None])
             return False
         try:
             if not is_playable:
                 self.progress.emit([track_id_str, "Unavailable", None])
+                logger.error(f"Track is unavailable, track id '{track_id_str}'")
                 return False
             else:
                 if os.path.isfile(filename) and os.path.getsize(filename) and SKIP_EXISTING_FILES:
                     self.progress.emit([track_id_str, "Already exists", [100, 100]])
+                    logger.debug(f"File already exists, Skipping download for track by id '{track_id_str}'")
                     return False
                 else:
                     if track_id_str != scraped_song_id:
@@ -250,9 +269,14 @@ class DownloadWorker(QObject):
                                 fail += 1
                             if fail > config.get("max_retries"):
                                 self.progress.emit([track_id_str, "RETRY "+str(fail+1), None])
-                                break
+                                logger.error(f"Max retries exceed for track by id '{track_id_str}'")
+                                self.progress.emit([track_id_str, "PD error. Will retry", None])
+                                if os.path.exists(filename):
+                                    os.remove(filename)
+                                return None
                             self.progress.emit([track_id_str, None, [downloaded, total_size]])
                     if not config.get("force_raw"):
+                        logger.debug(f"Force raw is disabled for track by id '{track_id_str}', media converting and tagging will be done !")
                         self.progress.emit([track_id_str, "Converting", None])
                         convert_audio_format(filename, quality)
                         self.progress.emit([track_id_str, "Writing metadata", None])
@@ -262,15 +286,21 @@ class DownloadWorker(QObject):
                         set_music_thumbnail(filename, image_url)
                         self.progress.emit([track_id_str, None, [100, 100]])
                         self.progress.emit([track_id_str, "Downloaded", None])
+                        logger.info(f"Downloaded track by id '{track_id_str}'")
+                        return True
+                    else:
+                        logger.info(f"Downloaded track by id '{track_id_str}', in raw mode")
                         return True
         except queue.Empty as e:
             if os.path.exists(filename):
                 os.remove(filename)
+            logger.error(f"Network timeout from spotify for track by id '{track_id_str}', download will be retried !")
             self.progress.emit([track_id_str, "Timeout. Will retry", None])
             return None
         except pydub.exceptions.CouldntDecodeError as e:
             if os.path.exists(filename):
                 os.remove(filename)
+            logger.error(f"Decoding error for track by id '{track_id_str}', possibly due to use of rate limited spotify account !")
             self.progress.emit([track_id_str, "Decode error. Will retry", None])
             traceback.print_exc()
             return None
@@ -278,10 +308,11 @@ class DownloadWorker(QObject):
             if os.path.exists(filename):
                 os.remove(filename)
             self.progress.emit([track_id_str, "Failed", None])
-            traceback.print_exc()
+            logger.error(f"Download failed for track by id '{track_id_str}', Unexpected error: {traceback.format_exc()} !")
             return False
 
     def download_episode(self, episode_id_str, extra_paths=""):
+        logger.debug(f"Downloading episode by id '{episode_id_str}'")
         ROOT_PODCAST_PATH = os.path.join(config.get("download_root"), "Podcasts")
         quality = AudioQuality.HIGH
         podcast_name, episode_name = get_episode_info(episode_id_str)
@@ -290,6 +321,7 @@ class DownloadWorker(QObject):
 
         if podcast_name is None:
             self.progress.emit([episode_id_str, "Not Found", [0, 100]])
+            logger.error(f"Downloading failed for episode by id '{episode_id_str}', Not found")
             return False
         else:
             try:
@@ -317,23 +349,26 @@ class DownloadWorker(QObject):
                             self.progress.emit([episode_id_str, "RETRY "+str(fail+1), None])
                             break
                 if downloaded >= total_size:
+                    logger.info(f"Episode by id '{episode_id_str}', downloaded")
                     self.progress.emit([episode_id_str, "Downloaded", [100, 100]])
                     return True
                 else:
+                    logger.debug(f"Downloading failed for episode by id '{episode_id_str}', partial download failed !")
                     self.progress.emit([episode_id_str, "Failed", [0, 100]])
                     return False
             except:
+                logger.debug(f"Downloading failed for episode by id '{episode_id_str}', Unexpected Exception: {traceback.format_exc()}")
                 self.progress.emit([episode_id_str, "Failed", [0, 100]])
                 return False
 
     def run(self):
-        print("Running ", self.name)
+        logger.debug(f"Download worker {self.name} is running ")
         while not self.__stop:
             item = self.__queue.get()
             attempt = 0
             if item[0] == "track":
-                print("Thread ", self.name, " downloading track: ", item[1])
                 while attempt < config.get("max_retries"):
+                    logger.debug(f"Processing download for track by id '{item[1]}', Attempt: {attempt}")
                     attempt = attempt + 1
                     self.progress.emit([item[1], "Downloading", None])
                     status = self.download_track(
@@ -351,8 +386,8 @@ class DownloadWorker(QObject):
                 time.sleep(config.get("download_delay"))
 
             elif item[0] == "episode":
-                print("Thread ", self.name, " downloading episode: ", item[1])
                 while attempt < config.get("max_retries"):
+                    logger.debug(f"Processing download for episode by id '{item[1]}', Attempt: {attempt}")
                     attempt = attempt + 1
                     self.progress.emit([item[1], "Downloading", None])
                     status = self.download_episode(

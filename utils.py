@@ -2,34 +2,59 @@ import os
 from librespot.core import Session
 import time
 import re
+from runtimedata import get_logger
+import traceback
+
+
+logger = get_logger("utils")
+
 
 def login_user(username: str, password: str, login_data_dir: str)->list:
+    logger.debug(f"logging in user '{username[:4]}****@****.***'")
     # Check the username and if pickled sessionfile exists load the session and append
     # Returns: [Success: Bool, Session: Session, PicklePath: str, premium: Bool]
     sessobj_pikpath = os.path.join(login_data_dir, username+"_GUZpotifylogin.json")
-    print("logging in user")
     os.makedirs(os.path.dirname(sessobj_pikpath), exist_ok=True)
     if os.path.isfile(sessobj_pikpath):
-        print("Restoring user session")
+        logger.debug(f"Session file exists for user, attempting to use it '{username[:4]}****@****.***'")
+        logger.info("Restoring user session")
         # Session exists try loading it
         try:
             config = Session.Configuration.Builder().set_stored_credential_file(sessobj_pikpath).build()
+            logger.debug("Session config created")
+            # For some reason initialising session as None prevents premature application exit
+            session = None
             session = Session.Builder(conf=config).stored_file(sessobj_pikpath).create()
+            logger.debug("Session created")
             premium = True if session.get_user_attribute("type") == "premium" else False
+            logger.debug(f"Login successful for user '{username[:4]}****@****.***'")
             return [True, session, sessobj_pikpath, premium]
         except (RuntimeError, Session.SpotifyAuthenticationException):
+            logger.error(f"Failed logging in user '{username[:4]}****@****.***', invalid credentials")
+            return [False, None, "", False]
+        except Exception:
+            logger.error(f"Failed to login user '{username[:4]}****@****.***' due to unexpected error: {traceback.format_exc()}")
             return [False, None, "", False]
     else:
+        logger.debug(f"Session file does not exist user '{username[:4]}****@****.***', attempting login with uname/pass")
         try:
+            logger.debug(f"logging in user '{username[:4]}****@****.***'")
             config = Session.Configuration.Builder().set_stored_credential_file(sessobj_pikpath).build()
             print("logging in !")
             session = Session.Builder(conf=config).user_pass(username, password).create()
             premium = True if session.get_user_attribute("type") == "premium" else False
+            logger.debug(f"Login successful for user '{username[:4]}****@****.***'")
             return [True, session, sessobj_pikpath, premium]
         except (RuntimeError, Session.SpotifyAuthenticationException):
+            logger.error(f"Failed logging in user '{username[:4]}****@****.***', invalid credentials")
             return [False, None, "", False]
+        except Exception:
+            return [False, None, "", False]
+            logger.error(f"Failed to login user '{username[:4]}****@****.***' due to unexpected error: {traceback.format_exc()}")
+    return [False, None, "", False]
 
 def remove_user(username: str, login_data_dir: str, config)->bool:
+    logger.debug(f"Removing user '{username[:4]}****@****.***' from saved entries")
     sessobj_pikpath = os.path.join(login_data_dir, username+"_GUZpotifylogin.json")
     if os.path.isfile(sessobj_pikpath):
         os.remove(sessobj_pikpath)
@@ -40,19 +65,18 @@ def remove_user(username: str, login_data_dir: str, config)->bool:
     print("AC", accounts_copy)
     for i in range(0, len(accounts)):
         if accounts[i][0] == username:
-            print("AC FOUND")
             accounts_copy.pop(i)
-            print("AC CP AP", accounts_copy)
             removed = True
             break
     if removed:
-        print("AC CP CF SET", accounts_copy)
+        logger.debug(f"Saved Account user '{username[:4]}****@****.***' found and removed")
         config.set_("accounts", accounts_copy)
         config.update()
     return removed
 
 
 def regex_input_for_urls(search_input):
+    logger.debug(f"Parsing url '{search_input}'")
     track_uri_search = re.search(
         r"^spotify:track:(?P<TrackID>[0-9a-zA-Z]{22})$", search_input)
     track_url_search = re.search(
@@ -136,22 +160,28 @@ def regex_input_for_urls(search_input):
                          artist_url_search).group("ArtistID")
     else:
         artist_id_str = None
-
     return track_id_str, album_id_str, playlist_id_str, episode_id_str, show_id_str, artist_id_str
 
 def get_url_data(url):
     track_id_str, album_id_str, playlist_id_str, episode_id_str, show_id_str, artist_id_str = regex_input_for_urls(url)
     if track_id_str is not None:
+        logger.debug(f"Parse result for url '{url}'-> track, {track_id_str}")
         return "track", track_id_str
     elif album_id_str is not None:
+        logger.debug(f"Parse result for url '{url}'-> album, {album_id_str}")
         return "album", album_id_str
     elif playlist_id_str is not None:
+        logger.debug(f"Parse result for url '{url}'-> playlist, {playlist_id_str}")
         return "playlist", playlist_id_str
     elif episode_id_str is not None:
+        logger.debug(f"Parse result for url '{url}'-> episode, {episode_id_str}")
         return "episode", episode_id_str
     elif show_id_str is not None:
+        logger.debug(f"Parse result for url '{url}'-> podcast, {show_id_str}")
         return "podcast", show_id_str
     elif artist_id_str is not None:
+        logger.debug(f"Parse result for url '{url}'-> artist, {artist_id_str}")
         return "artist", artist_id_str
     else:
+        logger.error(f"Parse result for url '{url}' failed, invalid spotify url !")
         return None, None

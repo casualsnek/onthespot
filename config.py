@@ -11,6 +11,7 @@ class Config:
             "max_threads": 1,
             "parsing_acc_sn": 1,
             "download_root": os.path.join(os.path.expanduser("~"), "Music", "OnTheSpot"),
+            "log_file": os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "logs", "onthespot.log"),
             "download_delay": 5,
             "max_retries": 3,
             "max_search_results": 10,
@@ -33,8 +34,9 @@ class Config:
             with open(self.__cfg_path, "w") as cf:
                 cf.write(json.dumps(self.__template_data))
             self.__config = self.__template_data
-        os.makedirs(os.path.dirname(self.__config["dlid_cache"]), exist_ok=True)
-        os.makedirs(self.__config["download_root"], exist_ok=True)
+        os.makedirs(os.path.dirname(self.get("dlid_cache")), exist_ok=True)
+        os.makedirs(self.get("download_root"), exist_ok=True)
+        os.makedirs(os.path.dirname(self.get("log_file")), exist_ok=True)
 
     def get(self, key, default=None):
         if key in self.__config:
