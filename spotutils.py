@@ -225,12 +225,23 @@ class DownloadWorker(QObject):
             artists, album_name, name, image_url, release_year, disc_number, track_number, scraped_song_id, is_playable = get_song_info(session, track_id_str)
             _artist = artists[0]
             if prefix:
-                _track_number = str(track_number).zfill(2)
-                song_name = f'{_artist} - {album_name} - {_track_number}. {name}.{config.get("media_format")}'
-                filename = os.path.join(config.get("download_root"), extra_paths, song_name)
-            else:
-                song_name = f'{_artist} - {album_name} - {name}.{config.get("media_format")}'
-                filename = os.path.join(config.get("download_root"), extra_paths, song_name)
+                # If prefix is true use artist / album directory formatter
+                extra_paths=os.path.join(config.get("album_name_formatter").format(
+                    artist=_artist,
+                    rel_year=release_year,
+                    album=album_name
+                    ))
+
+            song_name = config.get("track_name_formatter").format(
+                    artist =_artist,
+                    album=album_name,
+                    name=name,
+                    rel_year=release_year,
+                    disc_number=disc_number,
+                    track_number=track_number,
+                    spotid=scraped_song_id
+                )+"."+config.get("media_format")
+            filename = os.path.join(config.get("download_root"), extra_paths, song_name)
         except Exception as e:
             logger.error(f"Metadata fetching failed for track by id '{track_id_str}'")
             self.progress.emit([track_id_str, "Get metadata failed", None])
@@ -258,15 +269,20 @@ class DownloadWorker(QObject):
                     _CHUNK_SIZE = CHUNK_SIZE
                     fail = 0
                     with open(filename, 'wb') as file:
-                        while downloaded <= total_size:
+                        while downloaded < total_size:
                             data = stream.input_stream.stream().read(_CHUNK_SIZE)
+                            logger.info(f"Reading chunk of {_CHUNK_SIZE} bytes for track by id '{track_id_str}'")
                             downloaded += len(data)
-                            file.write(data)
-                            self.progress.emit([track_id_str, None, [downloaded, total_size]])
+                            if len(data) != 0:
+                                file.write(data)
+                                self.progress.emit([track_id_str, None, [downloaded, total_size]])
+                            if len(data) == 0 and _CHUNK_SIZE > config.get("dl_end_padding_bytes"):
+                                logger.error(f"PD Error for track by id '{track_id_str}'")
+                                fail += 1
+                            elif len(data) == 0 and _CHUNK_SIZE <= config.get("dl_end_padding_bytes"):
+                                break
                             if (total_size - downloaded) < _CHUNK_SIZE:
                                 _CHUNK_SIZE = total_size - downloaded
-                            if len(data) == 0 :
-                                fail += 1
                             if fail > config.get("max_retries"):
                                 self.progress.emit([track_id_str, "RETRY "+str(fail+1), None])
                                 logger.error(f"Max retries exceed for track by id '{track_id_str}'")

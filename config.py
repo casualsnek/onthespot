@@ -13,18 +13,18 @@ class Config:
             "download_root": os.path.join(os.path.expanduser("~"), "Music", "OnTheSpot"),
             "log_file": os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "logs", "onthespot.log"),
             "download_delay": 5,
+            "track_name_formatter": "{artist} - {album} - {name}",
+            "album_name_formatter": "{artist}/[{rel_year}] {album}",
+            "playlist_track_force_album_dir": 1,
+            "dl_end_padding_bytes": 167,
             "max_retries": 3,
             "max_search_results": 10,
             "media_format": "mp3",
             "force_raw": False,
             "force_premium": False,
             "chunk_size": 50000,
-            "podcast_subdir": "Podcasts",
-            "albums_subdir": "Albums",
             "recoverable_fail_wait_delay": 10,
-            "artists_subdir": "Artists",
             "disable_bulk_dl_notices": True,
-            "dlid_cache": os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "dlid.json"),
             "accounts": [  ]
         }
         if os.path.isfile(self.__cfg_path):

@@ -8,17 +8,18 @@ from logging.handlers import RotatingFileHandler
 
 
 log_formatter = logging.Formatter('[%(asctime)s :: %(pathname)s -> %(lineno)s:%(funcName)20s() :: %(levelname)s] -> %(message)s')
-my_handler = RotatingFileHandler(config.get("log_file"), mode='a', maxBytes=5*1024*1024,
+log_handler = RotatingFileHandler(config.get("log_file"), mode='a', maxBytes=5*1024*1024,
                                  backupCount=2, encoding=None, delay=0)
-my_handler.setFormatter(log_formatter)
-my_handler.setLevel(logging.DEBUG)
+stdout_handler = logging.StreamHandler(sys.stdout)
+log_handler.setFormatter(log_formatter)
 download_queue = Queue()
 thread_pool = []
 session_pool = []
 
 def get_logger(name):
     logger = logging.getLogger(name)
-    logger.addHandler(my_handler)
+    logger.addHandler(log_handler)
+    logger.addHandler(stdout_handler)
     logger.setLevel(logging.DEBUG)
     return logger
 

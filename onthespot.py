@@ -76,7 +76,7 @@ class ParsingQueueProcessor(QObject):
                     exp = ""
                     if track["explicit"]:
                         exp = "[ 18+ ]"
-                    self.enqueue.emit([[f"{exp} {track['name']}", f"{','.join([_artist['name'] for _artist in track['artists']])}", f"Album [{album_release_date}][{album_name}]"], "track", track["id"], os.path.join(artist, f"[ {album_release_date} ] {album_name}")])
+                    self.enqueue.emit([[f"{exp} {track['name']}", f"{','.join([_artist['name'] for _artist in track['artists']])}", f"Album [{album_release_date}][{album_name}]"], "track", track["id"], os.path.join(config.get("album_name_formatter").format(artist=artist, rel_year=album_release_date, album=album_name)), False])
                 if not entry[3]:
                     self.progress.emit(f"Added album '[{album_release_date}] [{total_tracks}] {album_name}' to download queue !")
                # Add to downloads table
@@ -94,7 +94,7 @@ class ParsingQueueProcessor(QObject):
                         exp = ""
                         if track["explicit"]:
                             exp = "[ 18+ ]"
-                        self.enqueue.emit([[f"{exp} {track['name']}", f"{','.join([_artist['name'] for _artist in track['artists']])}", f"Album [{album_release_date}][{album_name}]"], "track", track["id"], os.path.join(artist, f"[ {album_release_date} ] {album_name}")])
+                        self.enqueue.emit([[f"{exp} {track['name']}", f"{','.join([_artist['name'] for _artist in track['artists']])}", f"Album [{album_release_date}][{album_name}]"], "track", track["id"], os.path.join(config.get("album_name_formatter").format(artist=artist, rel_year=album_release_date, album=album_name)), False])
                 if not entry[3]:
                     self.progress.emit("Added tracks by artist '{itemname}' to download queue !".format(itemname=entry[2].strip()))
             elif entry[0] == "podcast":
@@ -129,7 +129,7 @@ class ParsingQueueProcessor(QObject):
                         if song['track']["explicit"]:
                             exp = "[ 18+ ]"
                         #artists, album_name, name, image_url, release_year, disc_number, track_number, scraped_song_id, is_playable = get_song_info(session_pool[0], song['track']['id'])
-                        self.enqueue.emit([[f"{exp} {song['track']['name']}", f"{','.join([artist['name'] for artist in song['track']['artists']])}", "Playlist"], "track", song['track']['id'], ""])
+                        self.enqueue.emit([[f"{exp} {song['track']['name']}", f"{','.join([artist['name'] for artist in song['track']['artists']])}", "Playlist"], "track", song['track']['id'], "", config.get("playlist_track_force_album_dir")])
                 if not entry[3]:
                     self.progress.emit("Added playlist '{itemname}' to download queue !".format(
                     itemname=entry[2].strip()
@@ -140,7 +140,7 @@ class ParsingQueueProcessor(QObject):
                     itemname=entry[2].strip()
                     ))
                 logger.debug(f"PQP parsinf track : {entry[2].strip()}:{entry[1]['id']}")
-                self.enqueue.emit([[entry[2].strip(), f"{','.join([artist['name'] for artist in entry[1]['artists']])}", "Track"], "track", entry[1]["id"], ""])
+                self.enqueue.emit([[entry[2].strip(), f"{','.join([artist['name'] for artist in entry[1]['artists']])}", "Track"], "track", entry[1]["id"], "", config.get("playlist_track_force_album_dir")])
                 if not entry[3]:
                     self.progress.emit("Added track '{itemname}' to download queue !".format(
                     itemname=entry[2].strip()
@@ -159,6 +159,7 @@ class MainWindow(QMainWindow):
         uic.loadUi(os.path.join(self.path, "ui", "main.ui"), self)
         logger.debug("Initialising main window")
         self.btn_save_config.clicked.connect(self.__update_config)
+        self.btn_save_adv_config.clicked.connect(self.__update_config)
         self.btn_login_add.clicked.connect(self.__add_account)
         self.btn_search.clicked.connect(self.__get_search_results)
         self.btn_url_download.clicked.connect(self.__download_by_url)
@@ -169,6 +170,7 @@ class MainWindow(QMainWindow):
         self.btn_search_download_artists.clicked.connect(lambda x, cat="artists": self.__mass_action_dl(cat))
         self.btn_search_download_playlists.clicked.connect(lambda x, cat="playlists": self.__mass_action_dl(cat))
         self.btn_download_root_browse.clicked.connect(self.__select_dir)
+        self.btn_toggle_advanced.clicked.connect(self.__toggle_advanced)
 
         self.__users = []
         self.__parsing_queue = queue.Queue()
@@ -178,6 +180,8 @@ class MainWindow(QMainWindow):
         logger.debug("Loading configurations..")
         # Fill the value from configs
         self.__fill_configs()
+        self.__advanced_visible = False
+        self.tabview.setTabVisible(1, self.__advanced_visible)
 
         self.__splash_dialog = MiniDialog(self)
 
@@ -234,6 +238,10 @@ class MainWindow(QMainWindow):
         dir_path = QFileDialog.getExistingDirectory(None, 'Select a folder:', os.path.expanduser("~"))
         self.inp_download_root.setText(dir_path)
 
+    def __toggle_advanced(self):
+        self.__advanced_visible = False if self.__advanced_visible else True
+        self.tabview.setTabVisible(1, self.__advanced_visible)
+
     def __dl_progress(self, data):
         media_id = data[0]
         status = data[1]
@@ -260,8 +268,12 @@ class MainWindow(QMainWindow):
         status.setText("Waiting")
         logger.debug(f"Adding item to download queue -> media_type:{item[1]}, media_id: {item[2]}, extra_path:{item[3]}, prefix: 1, Prefixvalue: '' ")
         # Submit to download queue
-        #                  [ media_type, Media_id, "", Prefix, Prefixvalue, ProgressWriter ]
-        download_queue.put([item[1], item[2], item[3], True, ""])
+        #                  [ media_type, Media_id, extra_path, Prefix, Prefixvalue ]
+        try:
+            pfix_enable = item[4]
+        except IndexError:
+            pfix_enable = False
+        download_queue.put([item[1], item[2], item[3], pfix_enable, ""])
         self.__downloads_status[item[2]] = {
                 "status_label": status,
                 "progress_bar": pbar
@@ -362,7 +374,12 @@ class MainWindow(QMainWindow):
         self.inp_download_delay.setValue(config.get("download_delay"))
         self.inp_max_search_results.setValue(config.get("max_search_results"))
         self.inp_max_retries.setValue(config.get("max_retries"))
+        self.inp_chunk_size.setValue(config.get("chunk_size"))
         self.inp_media_format.setText(config.get("media_format"))
+        self.inp_track_formatter.setText(config.get("track_name_formatter"))
+        self.inp_alb_formatter.setText(config.get("album_name_formatter"))
+        self.inp_max_recdl_delay.setValue(config.get("recoverable_fail_wait_delay"))
+        self.inp_dl_endskip.setValue(config.get("dl_end_padding_bytes"))
         if config.get("force_raw"):
             self.inp_raw_download.setChecked(True)
         else:
@@ -371,6 +388,14 @@ class MainWindow(QMainWindow):
             self.inp_force_premium.setChecked(True)
         else:
             self.inp_force_premium.setChecked(False)
+        if config.get("disable_bulk_dl_notices"):
+            self.inp_disable_bulk_popup.setChecked(True)
+        else:
+            self.inp_disable_bulk_popup.setChecked(False)
+        if config.get("playlist_track_force_album_dir"):
+            self.inp_force_track_dir.setChecked(True)
+        else:
+            self.inp_force_track_dir.setChecked(False)
         logger.debug("Config filled to UI")
 
     def __update_config(self):
@@ -383,8 +408,15 @@ class MainWindow(QMainWindow):
         else:
             config.set_("parsing_acc_sn", self.inp_parsing_acc_sn.value())
         config.set_("download_root", self.inp_download_root.text())
+        config.set_("track_name_formatter", self.inp_track_formatter.text())
+        config.set_("album_name_formatter", self.inp_alb_formatter.text())
         config.set_("download_delay", self.inp_download_delay.value())
+        config.set_("chunk_size", self.inp_chunk_size.value())
+        config.set_("recoverable_fail_wait_delay", self.inp_max_recdl_delay.value())
+        config.set_("dl_end_padding_bytes", self.inp_dl_endskip.value())
         config.set_("max_retries", self.inp_max_retries.value())
+        config.set_("disable_bulk_dl_notices", self.inp_disable_bulk_popup.isChecked())
+        config.set_("playlist_track_force_album_dir", self.inp_force_track_dir.isChecked())
         if self.inp_max_search_results.value() > 0 and self.inp_max_search_results.value() <= 50:
             config.set_("max_search_results", self.inp_max_search_results.value())
         else:
@@ -398,6 +430,7 @@ class MainWindow(QMainWindow):
             config.set_("force_premium", True)
         else:
             config.set_("force_premium", False)
+
         config.update()
         logger.debug("Config updated !")
 
@@ -501,7 +534,7 @@ class MainWindow(QMainWindow):
 
         for album in data["albums"]:
             rel_year = re.search('(\d{4})', album['release_date']).group(1)
-            itemname = f"[YEAR: {rel_year} ] [ TRACKS: {album['total_tracks']} ] {album['name']}"
+            itemname = f"[Y:{rel_year}] [T:{album['total_tracks']}] {album['name']}"
             by = f"{','.join([artist['name'] for artist in album['artists']])}"
             btn = QPushButton(self.tbl_search_results)
             btn.setText(" Download Album")
