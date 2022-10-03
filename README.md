@@ -37,13 +37,13 @@ Download status/progress can be viewed by navigating to 'Progress tabs'
 
 
 # General Configuration options
- - Max download workers   : It is the number of downloaders available for parallel media downloads. It is recommended you set it to number of spotify accounts you have added in application. Changing this setting required application restart to take effect.
+ - Max download workers   : It is the number of downloaders available for parallel media downloads. It is recommended you set it to number of accounts you have added in application. Changing this setting required application restart to take effect.
  - Parsing Account SN     : It is the Number shown at left side of username in Accounts table. The username corresponding to the SN is responsible for providing search results and parsing download url(s).
  - Download Location      : The root folder where downloaded medias are placed in. Click browse button next to it to set a new location to download files in.
  - Download delay         : Time in seconds to wait before next download after successful download.
  - Max retries            : Number of download retries to perform before giving up the download process.
  - Max search results     : The number of items to show in search result for each type of media. Example: Setting it to '1' shows one result for Artist, Album, Track and Playlist resulting in 4 total search results.
- - Raw media download     : Downloads files (ogg) directly from spotify server and writes to disk without converting to set media format, it also disables metadata writing and thumbnail embedding.
+ - Raw media download     : Downloads files (ogg) directly writes to disk without converting to set media format, it also disables metadata writing and thumbnail embedding.
  - Force premium          : Use this is your premium accounts shows FREE in accounts table, this applies to all added accounts so it's not recommeded to use while using combination of free and premium accounts.
  - Show/Hide Advanced Configuration: Enable/Disables the Advanced configuration tab
  - Save setting           : Saves the current setting and applies it to the application.
