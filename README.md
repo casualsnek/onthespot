@@ -1,6 +1,7 @@
 # onthespot
 ![Screenshot](https://i.imgur.com/C4V94gy.png)
-qt based Spotify downloader written in python
+
+qt based music downloader written in python
 
 # Installing and launching application
 Make sure python3 is installed on your system then:
@@ -20,7 +21,7 @@ After adding accounts close and restart application and you should be good to go
 
 
 ## Searching/Downloading
-Click on 'OnTheSpot Search' tab then enter your search query and cick search to search for songs/artists/albums/playlists in spotify.
+Click on 'OnTheSpot Search' tab then enter your search query and cick search to search for songs/artists/albums/playlists using spotify.
 You can then start downloading by cick on 'Download' button on the row of your search result.
 Note that Media Type other than 'Tracks' can take a little longer to parse and download. Application may appear to be frozen in this state but it is nothing to worry about !
 You can bulk download particlar type of media like 'Albums', 'Tracks', etc, that appear on results table by clicking the download button below the results table.
@@ -84,7 +85,7 @@ Enabling this will disable popup dialog about status when using buld download bu
 Time to wait before retrying in case download fails due to Recoverable issues like network errors
 
 ### 6. Download end skip (Bytes)
-Sometimes, last few bytes cannot be downloaded from spotify which causes 'PD Error' to show up and causes downloads to fail constantly, this sets up the number of bytes to skip downloading if this happens.
+Sometimes, last few bytes cannot be downloaded which causes 'PD Error' to show up and causes downloads to fail constantly, this sets up the number of bytes to skip downloading if this happens.
 The value might change but the current working vaue is '167' bytes. If you get 'Decode errors' or Incomplete song downloads try setting it to 0
 
 ### 7. Force Artist/Album dir for track/playlist items
@@ -96,7 +97,7 @@ Format of media you want your final music download to be in. ( Do not include '.
 
 
 # Issues
-Decode error : If you are getting into this error, your account might have got restriction from spotify. Try removing it and add different one
+Decode error : If you are getting into this error, your account might have got restricted. Wait some time or try dirrerent acc.
 The application may crash frequently as there is no proper exception handling yet. You can help by opening a new issue wih error message displayed on your console window after the application misbehaves.
 The readme also needs to be written properly.
 
