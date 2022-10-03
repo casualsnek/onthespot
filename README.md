@@ -3,6 +3,8 @@
 
 qt based music downloader written in python
 
+### Just created this discord for discussions: (Discord Invite)[https://discord.gg/2t6BNVgZ]
+
 # Installing and launching application
 Make sure python3 is installed on your system then:
   - Clone or download and extract the repository file: ```git clone https://github.com/casualsnek/onethespot```
