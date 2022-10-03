@@ -34,7 +34,6 @@ class Config:
             with open(self.__cfg_path, "w") as cf:
                 cf.write(json.dumps(self.__template_data))
             self.__config = self.__template_data
-        os.makedirs(os.path.dirname(self.get("dlid_cache")), exist_ok=True)
         os.makedirs(self.get("download_root"), exist_ok=True)
         os.makedirs(os.path.dirname(self.get("log_file")), exist_ok=True)
 

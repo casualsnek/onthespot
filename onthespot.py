@@ -12,19 +12,18 @@ from runtimedata import thread_pool, session_pool, download_queue, get_logger
 
 logger = get_logger("onethespot")
 
-
 class LoadSessions(QObject):
     finished = pyqtSignal()
     progress = pyqtSignal(str)
 
     def run(self):
-        logger.debug("Session loader has started !")
+        logger.info("Session loader has started !")
         accounts = config.get("accounts")
         t = len(accounts)
         c = 0
         for account in accounts:
             c = c + 1
-            logger.debug(f"Trying to create session for {account[0][:4]}")
+            logger.info(f"Trying to create session for {account[0][:4]}")
             self.progress.emit("Attempting to create session for:\n"+account[0]+"  [ {c}/{t} ]".format(
                     c=c,
                     t=t
@@ -58,7 +57,7 @@ class ParsingQueueProcessor(QObject):
     enqueue = pyqtSignal(list)
 
     def run(self):
-        logger.debug("Parsing queue processor is active !")
+        logger.info("Parsing queue processor is active !")
         while not self.stop:
             entry = self.queue.get()
             # a="album", b=album, c=itemname, d=Silent
@@ -72,7 +71,7 @@ class ParsingQueueProcessor(QObject):
                 artist, album_release_date, album_name, total_tracks = get_album_name(session_pool[config.get("parsing_acc_sn")-1], entry[1]["id"])
                 tracks = get_album_tracks(session_pool[config.get("parsing_acc_sn")-1], entry[1]["id"])
                 for track in tracks:
-                    logger.debug(f"PQP parsing album : {album_name}:{entry[1]['id']}, track item: {track['name']}:{track['id']}")
+                    logger.info(f"PQP parsing album : {album_name}:{entry[1]['id']}, track item: {track['name']}:{track['id']}")
                     exp = ""
                     if track["explicit"]:
                         exp = "[ 18+ ]"
@@ -90,7 +89,7 @@ class ParsingQueueProcessor(QObject):
                     artist, album_release_date, album_name, total_tracks = get_album_name(session_pool[config.get("parsing_acc_sn")-1], album_id)
                     tracks = get_album_tracks(session_pool[config.get("parsing_acc_sn")-1], album_id)
                     for track in tracks:
-                        logger.debug(f"PQP parsing artist : {artist}:{entry[1]['id']}, album item: {album_name}:{album_id} ,track item: {track['name']}:{track['id']}")
+                        logger.info(f"PQP parsing artist : {artist}:{entry[1]['id']}, album item: {album_name}:{album_id} ,track item: {track['name']}:{track['id']}")
                         exp = ""
                         if track["explicit"]:
                             exp = "[ 18+ ]"
@@ -103,14 +102,14 @@ class ParsingQueueProcessor(QObject):
                     self.progress.emit("Episodes are being parsed and will be added to download queue shortly !")
                 for episode_id in get_show_episodes(session_pool[config.get("parsing_acc_sn")-1], entry[1]["id"]):
                     podcast_name, episode_name = get_episode_info(session_pool[config.get("parsing_acc_sn")-1], episode_id)
-                    logger.debug(f"PQP parsing podcast : {podcast_name}:{entry[1]['id']}, epiode item: {episode_name}:{episode_id}")
+                    logger.info(f"PQP parsing podcast : {podcast_name}:{entry[1]['id']}, epiode item: {episode_name}:{episode_id}")
                     showname = podcast_name
                     self.enqueue.emit([[name, name, f"Podcast [{podcast_name}]"], "episode", episode_id, ""])
                 if not entry[3]:
                     self.progress.emit(f"Added show '{showname}' to download queue!")
             elif entry[0] == "episode":
                 podcast_name, episode_name = get_episode_info(session_pool[config.get("parsing_acc_sn")-1], entry[1]["id"])
-                logger.debug(f"PQP parsing podcast episode : {episode_name}:{entry[1]['id']}")
+                logger.info(f"PQP parsing podcast episode : {episode_name}:{entry[1]['id']}")
                 if not entry[3]:
                     self.progress.emit(f"Adding episode '{episode_name}' of '{podcast_name}' to download queue !")
                 self.enqueue.emit([[name, name, f"Podcast [{podcast_name}]"], "episode", entry[1]["id"], ""])
@@ -124,7 +123,7 @@ class ParsingQueueProcessor(QObject):
                 playlist_songs = get_tracks_from_playlist(session_pool[config.get("parsing_acc_sn")-1], entry[1]['id'])
                 for song in playlist_songs:
                     if song['track']['id'] is not None:
-                        logger.debug(f"PQP parsing playlist : {entry[1]['id']}, track item: {song['track']['name']}:{song['track']['id']}")
+                        logger.info(f"PQP parsing playlist : {entry[1]['id']}, track item: {song['track']['name']}:{song['track']['id']}")
                         exp = ""
                         if song['track']["explicit"]:
                             exp = "[ 18+ ]"
@@ -139,7 +138,7 @@ class ParsingQueueProcessor(QObject):
                     self.progress.emit("Adding track '{itemname}' to download queue !".format(
                     itemname=entry[2].strip()
                     ))
-                logger.debug(f"PQP parsinf track : {entry[2].strip()}:{entry[1]['id']}")
+                logger.info(f"PQP parsinf track : {entry[2].strip()}:{entry[1]['id']}")
                 self.enqueue.emit([[entry[2].strip(), f"{','.join([artist['name'] for artist in entry[1]['artists']])}", "Track"], "track", entry[1]["id"], "", config.get("playlist_track_force_album_dir")])
                 if not entry[3]:
                     self.progress.emit("Added track '{itemname}' to download queue !".format(
@@ -157,7 +156,7 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__()
         self.path = os.path.dirname(os.path.realpath(__file__))
         uic.loadUi(os.path.join(self.path, "ui", "main.ui"), self)
-        logger.debug("Initialising main window")
+        logger.info("Initialising main window")
         self.btn_save_config.clicked.connect(self.__update_config)
         self.btn_save_adv_config.clicked.connect(self.__update_config)
         self.btn_login_add.clicked.connect(self.__add_account)
@@ -177,15 +176,15 @@ class MainWindow(QMainWindow):
         self.__downloads_status = {}
         self.__last_search_data = None
 
-        logger.debug("Loading configurations..")
+        logger.info("Loading configurations..")
         # Fill the value from configs
         self.__fill_configs()
         self.__advanced_visible = False
         self.tabview.setTabVisible(1, self.__advanced_visible)
 
-        self.__splash_dialog = MiniDialog(self)
+        self.__splash_dialog = _dialog
 
-        logger.debug("Preparing session loader")
+        logger.info("Preparing session loader")
         # Try logging in to sessions
         self.__session_builder_thread = QThread()
         self.__session_builder_worker = LoadSessions()
@@ -199,7 +198,7 @@ class MainWindow(QMainWindow):
         self.__session_builder_worker.progress.connect(self.__show_popup_dialog)
         self.__session_builder_thread.start()
 
-        logger.debug("Preparing parsing queue processor")
+        logger.info("Preparing parsing queue processor")
         # Create media queue processor
         self.__media_parser_thread = QThread()
         self.__media_parser_worker = ParsingQueueProcessor()
@@ -214,7 +213,7 @@ class MainWindow(QMainWindow):
         self.__media_parser_worker.enqueue.connect(self.__add_item_to_downloads)
         self.__media_parser_thread.start()
 
-        logger.debug("Setting table item properties")
+        logger.info("Setting table item properties")
         tbl_sessions_header = self.tbl_sessions.horizontalHeader()
         tbl_sessions_header.setSectionResizeMode(0, QHeaderView.Stretch)
         tbl_sessions_header.setSectionResizeMode(1, QHeaderView.Stretch)
@@ -232,7 +231,7 @@ class MainWindow(QMainWindow):
         tbl_dl_progress_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         tbl_dl_progress_header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         tbl_dl_progress_header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        logger.debug("Main window init completed !")
+        logger.info("Main window init completed !")
 
     def __select_dir(self):
         dir_path = QFileDialog.getExistingDirectory(None, 'Select a folder:', os.path.expanduser("~"))
@@ -249,11 +248,11 @@ class MainWindow(QMainWindow):
         try:
             if status is not None:
                 self.__downloads_status[media_id]["status_label"].setText(status)
-                logger.info(f"Updating status text for download item '{media_id}' to '{status}'")
+                logger.debug(f"Updating status text for download item '{media_id}' to '{status}'")
             if progress is not None:
                 percent = int((progress[0]/progress[1])*100)
                 self.__downloads_status[media_id]["progress_bar"].setValue(percent)
-                logger.info(f"Updating progresbar for download item '{media_id}' to '{percent}'%")
+                logger.debug(f"Updating progresbar for download item '{media_id}' to '{percent}'%")
         except KeyError:
             logger.error(f"Why TF we get here ?, Got progressbar update for media_id '{media_id}' which does not seem to exist !!! -> Valid Status items: {str( [_media_id for _media_id in self.__downloads_status] )} ")
         except Exception:
@@ -266,7 +265,7 @@ class MainWindow(QMainWindow):
         pbar.setMinimumHeight(30)
         status = QLabel(self.tbl_dl_progress)
         status.setText("Waiting")
-        logger.debug(f"Adding item to download queue -> media_type:{item[1]}, media_id: {item[2]}, extra_path:{item[3]}, prefix: 1, Prefixvalue: '' ")
+        logger.info(f"Adding item to download queue -> media_type:{item[1]}, media_id: {item[2]}, extra_path:{item[3]}, prefix: 1, Prefixvalue: '' ")
         # Submit to download queue
         #                  [ media_type, Media_id, extra_path, Prefix, Prefixvalue ]
         try:
@@ -304,7 +303,7 @@ class MainWindow(QMainWindow):
         index = self.tbl_sessions.indexAt(button.pos())
         logger.debug("Clicked account remove button !")
         if index.isValid():
-            logger.debug("Removed cicked for valid item ->"+self.tbl_sessions.item(index.row(), 0).text())
+            logger.info("Removed cicked for valid item ->"+self.tbl_sessions.item(index.row(), 0).text())
             username = self.tbl_sessions.item(index.row(), 0).text()
             removed = remove_user(username, os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "sessions"), config)
             if removed:
@@ -330,16 +329,16 @@ class MainWindow(QMainWindow):
             self.tbl_sessions.setItem(rows, 1, QTableWidgetItem(user[1]))
             self.tbl_sessions.setItem(rows, 2, QTableWidgetItem(user[2]))
             self.tbl_sessions.setCellWidget(rows, 3, btn)
-        logger.debug("Accounts table was populated !")
+        logger.info("Accounts table was populated !")
 
     def __rebuild_threads(self):
         # Wait for all threads to close then rebuild threads
-        logger.debug("Building downloader threads")
+        logger.info("Building downloader threads")
         if len(session_pool) > 0:
-            logger.debug("Session pool not empty ! Reset not implemented")
+            logger.warning("Session pool not empty ! Reset not implemented")
             if len(thread_pool) == 0:
                 # Build threads now
-                logger.debug(f"Spwaning {config.get('max_threads')} downloaders !")
+                logger.info(f"Spwaning {config.get('max_threads')} downloaders !")
                 for i in range(0, config.get("max_threads")):
                     session_index = None
                     t_index = i
@@ -349,7 +348,7 @@ class MainWindow(QMainWindow):
                         else:
                             session_index = t_index
                     item = [DownloadWorker(), QThread()]
-                    logger.debug(f"Spwaning DL WORKER {str(i+1)} using session_index: {t_index}")
+                    logger.info(f"Spwaning DL WORKER {str(i+1)} using session_index: {t_index}")
                     item[0].setup(thname="DL WORKER "+str(i+1), session=session_pool[t_index], queue_tracks=download_queue)
                     item[0].moveToThread(item[1])
                     item[1].started.connect(item[0].run)
@@ -396,7 +395,7 @@ class MainWindow(QMainWindow):
             self.inp_force_track_dir.setChecked(True)
         else:
             self.inp_force_track_dir.setChecked(False)
-        logger.debug("Config filled to UI")
+        logger.info("Config filled to UI")
 
     def __update_config(self):
         if config.get("max_threads") != self.inp_max_threads.value():
@@ -432,13 +431,13 @@ class MainWindow(QMainWindow):
             config.set_("force_premium", False)
 
         config.update()
-        logger.debug("Config updated !")
+        logger.info("Config updated !")
 
     def __add_account(self):
-        logger.debug("Add account clicked ")
+        logger.info("Add account clicked ")
         if self.inp_login_username.text().strip() in [ user[0] for user in config.get('accounts')]:
             self.__splash_dialog.run("The account '{}' is already added !".format(self.inp_login_username.text().strip()))
-            logger.debug("Account already exists "+self.inp_login_username.text().strip())
+            logger.warning("Account already exists "+self.inp_login_username.text().strip())
         if self.inp_login_username.text().strip() != "" and self.inp_login_password.text() != "":
             logger.debug("Credentials are not empty ! ")
             login = login_user(self.inp_login_username.text().strip(), self.inp_login_password.text(), os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "sessions"))
@@ -455,19 +454,19 @@ class MainWindow(QMainWindow):
                 config.update()
                 session_pool.append(login[1])
                 self.__splash_dialog.run("Loggedin successfully ! \n You need to restart application to be able to use this account. ")
-                logger.debug(f"Account {self.inp_login_username.text().strip()} added successfully")
+                logger.info(f"Account {self.inp_login_username.text().strip()} added successfully")
                 self.__users.append([ self.inp_login_username.text().strip(), "Premuim" if login[3] else "Free", "OK"])
                 self.__generate_users_table(self.__users)
             else:
                 logger.error(f"Accouunt add failed for : {self.inp_login_username.text().strip()}")
                 self.__splash_dialog.run("Login failed ! Probably invalid username or passowrd.")
         else:
-            logger.debug("Credentials are empty >-< ")
+            logger.info("Credentials are empty >-< ")
             self.__splash_dialog.run("Please enter username/password to log in !")
 
     def __get_search_results(self):
         search_term = self.inp_search_term.text().strip()
-        logger.debug(f"Search clicked with value {search_term}")
+        logger.info(f"Search clicked with value {search_term}")
         if len(session_pool) <= 0:
             self.__splash_dialog.run("You need to login to at least one account to use this feature !")
             return None
@@ -483,13 +482,13 @@ class MainWindow(QMainWindow):
 
     def __download_by_url(self):
         url = self.inp_dl_url.text().strip()
-        logger.debug(f"URL download clicked with value {url}")
+        logger.info(f"URL download clicked with value {url}")
         media_type, media_id = get_url_data(url)
         if media_type is None:
             self.__splash_dialog.run("Unable to determine the type of URL !")
             return False
         if len(session_pool) <= 0:
-            logger.debug(f"LMAO user needs to login before downloading or making search query")
+            logger.info(f"LMAO user needs to login before downloading or making search query")
             self.__splash_dialog.run("You need to login to at least one account to use this feature !")
             return False
         data = {
@@ -580,7 +579,7 @@ class MainWindow(QMainWindow):
     def __mass_action_dl(self, result_type):
         data = self.__last_search_data
         downloaded_types = []
-        logger.debug(f"Mass download for {result_type} was clicked.. Here hangs up the applicationn")
+        logger.info(f"Mass download for {result_type} was clicked.. Here hangs up the applicationn")
         if data is None:
             self.__splash_dialog.run("No search results to download !")
         else:
@@ -611,10 +610,6 @@ class MiniDialog(QDialog):
         self.path = os.path.dirname(os.path.realpath(__file__))
         uic.loadUi(os.path.join(self.path, "ui", "notice.ui"), self)
         self.btn_close.clicked.connect(self.hide)
-        self.setWindowFlags(
-        Qt.Popup |
-        Qt.WindowStaysOnTopHint
-        )
         logger.debug("Dialog item is ready..")
 
     def run(self, content):
@@ -623,8 +618,9 @@ class MiniDialog(QDialog):
         self.lb_main.setText(str(content))
 
 if __name__ == "__main__":
-    logger.debug("Starting application in 3...2....1")
+    logger.info("Starting application in 3...2....1")
     app = QApplication(sys.argv)
+    _dialog = MiniDialog()
     window = MainWindow()
     app.exec_()
-    logger.debug("Goodbyee..")
+    logger.info("Goodbyee..")

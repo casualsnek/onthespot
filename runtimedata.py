@@ -2,7 +2,7 @@ from queue import Empty, Queue
 import logging
 from config import config
 import logging
-import sys
+import sys, os
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -15,12 +15,12 @@ log_handler.setFormatter(log_formatter)
 download_queue = Queue()
 thread_pool = []
 session_pool = []
-
+loglevel = int(os.environ.get("LOGLEVEL", 20))
 def get_logger(name):
     logger = logging.getLogger(name)
     logger.addHandler(log_handler)
     logger.addHandler(stdout_handler)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(loglevel)
     return logger
 
 def handle_exception(exc_type, exc_value, exc_traceback):

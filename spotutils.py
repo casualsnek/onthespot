@@ -148,7 +148,7 @@ def search_by_term(session, search_term, max_results=20)->dict:
             "artists": resp.json()["artists"]["items"],
         }
     if len(results["tracks"]) + len(results["albums"]) + len(results["artists"]) + len(results["playlists"]) == 0:
-        logger.debug(f"No results for term '{search_term}', max items '{max_results}'")
+        logger.warning(f"No results for term '{search_term}', max items '{max_results}'")
         raise EmptySearchResultException("No result found for search term '{}' ".format(search_term))
     else:
         return results
@@ -254,7 +254,7 @@ class DownloadWorker(QObject):
             else:
                 if os.path.isfile(filename) and os.path.getsize(filename) and SKIP_EXISTING_FILES:
                     self.progress.emit([track_id_str, "Already exists", [100, 100]])
-                    logger.debug(f"File already exists, Skipping download for track by id '{track_id_str}'")
+                    logger.info(f"File already exists, Skipping download for track by id '{track_id_str}'")
                     return False
                 else:
                     if track_id_str != scraped_song_id:
@@ -271,7 +271,7 @@ class DownloadWorker(QObject):
                     with open(filename, 'wb') as file:
                         while downloaded < total_size:
                             data = stream.input_stream.stream().read(_CHUNK_SIZE)
-                            logger.info(f"Reading chunk of {_CHUNK_SIZE} bytes for track by id '{track_id_str}'")
+                            logger.debug(f"Reading chunk of {_CHUNK_SIZE} bytes for track by id '{track_id_str}'")
                             downloaded += len(data)
                             if len(data) != 0:
                                 file.write(data)
@@ -292,7 +292,7 @@ class DownloadWorker(QObject):
                                 return None
                             self.progress.emit([track_id_str, None, [downloaded, total_size]])
                     if not config.get("force_raw"):
-                        logger.debug(f"Force raw is disabled for track by id '{track_id_str}', media converting and tagging will be done !")
+                        logger.warning(f"Force raw is disabled for track by id '{track_id_str}', media converting and tagging will be done !")
                         self.progress.emit([track_id_str, "Converting", None])
                         convert_audio_format(filename, quality)
                         self.progress.emit([track_id_str, "Writing metadata", None])
@@ -328,7 +328,7 @@ class DownloadWorker(QObject):
             return False
 
     def download_episode(self, episode_id_str, extra_paths=""):
-        logger.debug(f"Downloading episode by id '{episode_id_str}'")
+        logger.info(f"Downloading episode by id '{episode_id_str}'")
         ROOT_PODCAST_PATH = os.path.join(config.get("download_root"), "Podcasts")
         quality = AudioQuality.HIGH
         podcast_name, episode_name = get_episode_info(episode_id_str)
@@ -369,22 +369,22 @@ class DownloadWorker(QObject):
                     self.progress.emit([episode_id_str, "Downloaded", [100, 100]])
                     return True
                 else:
-                    logger.debug(f"Downloading failed for episode by id '{episode_id_str}', partial download failed !")
+                    logger.error(f"Downloading failed for episode by id '{episode_id_str}', partial download failed !")
                     self.progress.emit([episode_id_str, "Failed", [0, 100]])
                     return False
             except:
-                logger.debug(f"Downloading failed for episode by id '{episode_id_str}', Unexpected Exception: {traceback.format_exc()}")
+                logger.error(f"Downloading failed for episode by id '{episode_id_str}', Unexpected Exception: {traceback.format_exc()}")
                 self.progress.emit([episode_id_str, "Failed", [0, 100]])
                 return False
 
     def run(self):
-        logger.debug(f"Download worker {self.name} is running ")
+        logger.info(f"Download worker {self.name} is running ")
         while not self.__stop:
             item = self.__queue.get()
             attempt = 0
             if item[0] == "track":
                 while attempt < config.get("max_retries"):
-                    logger.debug(f"Processing download for track by id '{item[1]}', Attempt: {attempt}")
+                    logger.info(f"Processing download for track by id '{item[1]}', Attempt: {attempt}")
                     attempt = attempt + 1
                     self.progress.emit([item[1], "Downloading", None])
                     status = self.download_track(
@@ -403,7 +403,7 @@ class DownloadWorker(QObject):
 
             elif item[0] == "episode":
                 while attempt < config.get("max_retries"):
-                    logger.debug(f"Processing download for episode by id '{item[1]}', Attempt: {attempt}")
+                    logger.info(f"Processing download for episode by id '{item[1]}', Attempt: {attempt}")
                     attempt = attempt + 1
                     self.progress.emit([item[1], "Downloading", None])
                     status = self.download_episode(
