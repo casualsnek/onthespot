@@ -10,7 +10,7 @@ Make sure python3 is installed on your system then:
   - Launch the application with ```python3 onthespot.py```
 
 
-Binary release are for windows/Linux and will be worked on soon :)
+Binary release are for windows will be worked on soon :). Note that it in early stage of development and features will be added . If you have ideas for improvement/features create a issue for discussion !
 
 
 # Getting started
@@ -100,7 +100,12 @@ Decode error : If you are getting into this error, your account might have got r
 The application may crash frequently as there is no proper exception handling yet. You can help by opening a new issue wih error message displayed on your console window after the application misbehaves.
 The readme also needs to be written properly.
 
-
+# TODOS
+ - Synced lyrics downloads
+ - Improve UI/UX ( Suggestions needed by users )
+ - Refactor code
+ - ....
+ 
 # Contributing/Supporting
 Current readme can be hard to understand due to improprt emglish. You can improve user experience by improving it.
 You can write code to include additional feature or bug fixes or make a issue regarding bugs and features or just spread the work about the application :)
