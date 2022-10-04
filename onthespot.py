@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QMainWindow, QHeaderView, QFileDialog, QPushButton, QTableWidgetItem, QApplication, QDialog, QProgressBar, QLabel
 from PyQt5 import uic
 from config import config
-from utils import login_user, remove_user, time, get_url_data
+from utils import login_user, remove_user, time, get_url_data, get_now_playing_local
 import sys, os
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, Qt, QTimer
 from exceptions import *
@@ -50,6 +50,29 @@ class LoadSessions(QObject):
     def setup(self, users):
         self.__users = users
 
+class MediaWatcher(QObject):
+    changed_media = pyqtSignal(str, bool)
+    finished = pyqtSignal()
+    last_url = ""
+    __stop = False
+
+    def run(self):
+        logger.info("Media watcher thread is running....")
+        while not self.__stop:
+            try:
+                spotify_url = get_now_playing_local(session_pool[config.get("parsing_acc_sn")-1])
+                if spotify_url != "" and spotify_url != self.last_url:
+                    logger.info(f"Desktop application media changed to: {spotify_url}")
+                    self.last_url = spotify_url
+                    self.changed_media.emit(spotify_url, True)
+                time.sleep(1)
+            except FileNotFoundError:
+                logger.error("Background monitor failed ! Playerctl not installed")
+                break
+        self.finished.emit()
+
+    def stop(self):
+        self.__stop = True
 
 class ParsingQueueProcessor(QObject):
     finished = pyqtSignal()
@@ -162,6 +185,7 @@ class MainWindow(QMainWindow):
         self.btn_login_add.clicked.connect(self.__add_account)
         self.btn_search.clicked.connect(self.__get_search_results)
         self.btn_url_download.clicked.connect(self.__download_by_url)
+        self.inp_enable_spot_watch.stateChanged.connect(self.__media_watcher_set)
 
         self.btn_search_download_all.clicked.connect(lambda x, cat="all": self.__mass_action_dl(cat))
         self.btn_search_download_tracks.clicked.connect(lambda x, cat="tracks": self.__mass_action_dl(cat))
@@ -172,6 +196,8 @@ class MainWindow(QMainWindow):
         self.btn_toggle_advanced.clicked.connect(self.__toggle_advanced)
 
         self.__users = []
+        self.__media_watcher = None
+        self.__media_watcher_thread = None
         self.__parsing_queue = queue.Queue()
         self.__downloads_status = {}
         self.__last_search_data = None
@@ -233,6 +259,39 @@ class MainWindow(QMainWindow):
         tbl_dl_progress_header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         logger.info("Main window init completed !")
 
+
+    def __media_watcher_set(self):
+        logger.info("Media watcher set clicked")
+        media_watcher_enabled = self.inp_enable_spot_watch.isChecked()
+        if media_watcher_enabled and self.__media_watcher is None:
+            logger.info("Starting media watcher thread, no active watcher")
+            self.__media_watcher = MediaWatcher()
+            self.__media_watcher_thread = QThread(parent=self)
+
+            self.__media_watcher.moveToThread(self.__media_watcher_thread)
+            self.__media_watcher_thread.started.connect(self.__media_watcher.run)
+
+            self.__media_watcher.finished.connect(self.__media_watcher_thread.quit)
+            self.__media_watcher.finished.connect(self.__media_watcher.deleteLater)
+            self.__media_watcher.finished.connect(self.__media_watcher_stopped)
+            self.__media_watcher.changed_media.connect(self.__download_by_url)
+
+            self.__media_watcher_thread.finished.connect(self.__media_watcher_thread.deleteLater)
+            self.__media_watcher_thread.start()
+            logger.info("Media watcher thread started")
+        if media_watcher_enabled is False and self.__media_watcher is not None:
+            logger.info("Active watcher, stopping it")
+            self.__media_watcher.stop()
+            time.sleep(2)
+            self.__media_watcher = None
+            self.__media_watcher_thread = None
+
+    def __media_watcher_stopped(self):
+        logger.info("Watcher stopped")
+        if self.inp_enable_spot_watch.isChecked():
+            self.inp_enable_spot_watch.setChecked(False)
+
+
     def __select_dir(self):
         dir_path = QFileDialog.getExistingDirectory(None, 'Select a folder:', os.path.expanduser("~"))
         self.inp_download_root.setText(dir_path)
@@ -265,7 +324,6 @@ class MainWindow(QMainWindow):
         pbar.setMinimumHeight(30)
         status = QLabel(self.tbl_dl_progress)
         status.setText("Waiting")
-        logger.info(f"Adding item to download queue -> media_type:{item[1]}, media_id: {item[2]}, extra_path:{item[3]}, prefix: 1, Prefixvalue: '' ")
         # Submit to download queue
         #                  [ media_type, Media_id, extra_path, Prefix, Prefixvalue ]
         try:
@@ -277,6 +335,7 @@ class MainWindow(QMainWindow):
                 "status_label": status,
                 "progress_bar": pbar
             }
+        logger.info(f"Adding item to download queue -> media_type:{item[1]}, media_id: {item[2]}, extra_path:{item[3]}, prefix: {pfix_enable}, Prefixvalue: ''")
         rows = self.tbl_dl_progress.rowCount()
         self.tbl_dl_progress.insertRow(rows)
         self.tbl_dl_progress.setItem(rows, 0, QTableWidgetItem(item[2]))
@@ -324,11 +383,17 @@ class MainWindow(QMainWindow):
             btn.clicked.connect(self.__user_table_remove_click)
             btn.setMinimumHeight(30)
             rows = self.tbl_sessions.rowCount()
+            br = "N/A"
+            if user[1].lower() == "free":
+                br = "160K"
+            elif user[1].lower() == "premium":
+                br = "320K"
             self.tbl_sessions.insertRow(rows)
             self.tbl_sessions.setItem(rows, 0, QTableWidgetItem(user[0]))
             self.tbl_sessions.setItem(rows, 1, QTableWidgetItem(user[1]))
-            self.tbl_sessions.setItem(rows, 2, QTableWidgetItem(user[2]))
-            self.tbl_sessions.setCellWidget(rows, 3, btn)
+            self.tbl_sessions.setItem(rows, 2, QTableWidgetItem(br))
+            self.tbl_sessions.setItem(rows, 3, QTableWidgetItem(user[2]))
+            self.tbl_sessions.setCellWidget(rows, 4, btn)
         logger.info("Accounts table was populated !")
 
     def __rebuild_threads(self):
@@ -383,6 +448,10 @@ class MainWindow(QMainWindow):
             self.inp_raw_download.setChecked(True)
         else:
             self.inp_raw_download.setChecked(False)
+        if config.get("watch_bg_for_spotify"):
+            self.inp_enable_spot_watch.setChecked(True)
+        else:
+            self.inp_enable_spot_watch.setChecked(False)
         if config.get("force_premium"):
             self.inp_force_premium.setChecked(True)
         else:
@@ -429,7 +498,10 @@ class MainWindow(QMainWindow):
             config.set_("force_premium", True)
         else:
             config.set_("force_premium", False)
-
+        if self.inp_enable_spot_watch.isChecked():
+            config.set_("watch_bg_for_spotify", True)
+        else:
+            config.set_("watch_bg_for_spotify", False)
         config.update()
         logger.info("Config updated !")
 
@@ -480,16 +552,21 @@ class MainWindow(QMainWindow):
             self.__splash_dialog.run("No result found for term '{}' !".format(search_term))
             return None
 
-    def __download_by_url(self):
-        url = self.inp_dl_url.text().strip()
+    def __download_by_url(self, url=None, hide_dialog=False):
+        if url is None:
+            url = self.inp_dl_url.text().strip()
         logger.info(f"URL download clicked with value {url}")
         media_type, media_id = get_url_data(url)
         if media_type is None:
-            self.__splash_dialog.run("Unable to determine the type of URL !")
+            logger.error(f"The type of url could not be determined ! URL: {url}")
+            if not hide_dialog:
+                self.__splash_dialog.run("Unable to determine the type of URL !")
             return False
         if len(session_pool) <= 0:
             logger.info(f"LMAO user needs to login before downloading or making search query")
-            self.__splash_dialog.run("You need to login to at least one account to use this feature !")
+            logger.warning("User needs to be logged in to download from url")
+            if not hide_dialog:
+                self.__splash_dialog.run("You need to login to at least one account to use this feature !")
             return False
         data = {
             "id": media_id
@@ -500,8 +577,9 @@ class MainWindow(QMainWindow):
             data["artists"] = [{'name': name} for name in artists]
             # GET TITLE
             title = name
-        self.__parsing_queue.put([media_type, data, title, False])
-        self.__splash_dialog.run(f"The {media_type.title()} is being parsed and will be added to download queue shortly ! !")
+        self.__parsing_queue.put([media_type, data, title, hide_dialog])
+        if not hide_dialog:
+                self.__splash_dialog.run(f"The {media_type.title()} is being parsed and will be added to download queue shortly ! !")
         return False
 
 
