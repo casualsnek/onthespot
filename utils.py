@@ -9,7 +9,7 @@ import subprocess
 
 
 if platform.system() == "Windows":
-    from winrt.windows.media.control import \
+    from winsdk.windows.media.control import \
     GlobalSystemMediaTransportControlsSessionManager as MediaManager
 
 logger = get_logger("utils")
