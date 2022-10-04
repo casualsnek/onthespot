@@ -1,16 +1,19 @@
 # onthespot
 ![Screenshot](https://i.imgur.com/C4V94gy.png)
-qt based Spotify downloader written in python
+
+qt based music downloader written in python
+
+### Just created this discord for discussions: [Discord Invite](https://discord.gg/2t6BNVgZ)
 
 # Installing and launching application
 Make sure python3 is installed on your system then:
   - Clone or download and extract the repository file: ```git clone https://github.com/casualsnek/onethespot```
-  - Navigate to the onthespot directory ```cd onethesport```
+  - Navigate to the onthespot directory ```cd onethespot```
   - Install the dependencies with ```pip install -r requirements.txt```
   - Launch the application with ```python3 onthespot.py```
 
 
-Binary release are for windows/Linux and will be worked on soon :)
+Binary release are for windows will be worked on soon :). Note that it in early stage of development and features will be added . If you have ideas for improvement/features create a issue for discussion !
 
 
 # Getting started
@@ -20,7 +23,7 @@ After adding accounts close and restart application and you should be good to go
 
 
 ## Searching/Downloading
-Click on 'OnTheSpot Search' tab then enter your search query and cick search to search for songs/artists/albums/playlists in spotify.
+Click on 'OnTheSpot Search' tab then enter your search query and cick search to search for songs/artists/albums/playlists using spotify.
 You can then start downloading by cick on 'Download' button on the row of your search result.
 Note that Media Type other than 'Tracks' can take a little longer to parse and download. Application may appear to be frozen in this state but it is nothing to worry about !
 You can bulk download particlar type of media like 'Albums', 'Tracks', etc, that appear on results table by clicking the download button below the results table.
@@ -36,13 +39,13 @@ Download status/progress can be viewed by navigating to 'Progress tabs'
 
 
 # General Configuration options
- - Max download workers   : It is the number of downloaders available for parallel media downloads. It is recommended you set it to number of spotify accounts you have added in application. Changing this setting required application restart to take effect.
+ - Max download workers   : It is the number of downloaders available for parallel media downloads. It is recommended you set it to number of accounts you have added in application. Changing this setting required application restart to take effect.
  - Parsing Account SN     : It is the Number shown at left side of username in Accounts table. The username corresponding to the SN is responsible for providing search results and parsing download url(s).
  - Download Location      : The root folder where downloaded medias are placed in. Click browse button next to it to set a new location to download files in.
  - Download delay         : Time in seconds to wait before next download after successful download.
  - Max retries            : Number of download retries to perform before giving up the download process.
  - Max search results     : The number of items to show in search result for each type of media. Example: Setting it to '1' shows one result for Artist, Album, Track and Playlist resulting in 4 total search results.
- - Raw media download     : Downloads files (ogg) directly from spotify server and writes to disk without converting to set media format, it also disables metadata writing and thumbnail embedding.
+ - Raw media download     : Downloads files (ogg) directly writes to disk without converting to set media format, it also disables metadata writing and thumbnail embedding.
  - Force premium          : Use this is your premium accounts shows FREE in accounts table, this applies to all added accounts so it's not recommeded to use while using combination of free and premium accounts.
  - Show/Hide Advanced Configuration: Enable/Disables the Advanced configuration tab
  - Save setting           : Saves the current setting and applies it to the application.
@@ -84,7 +87,7 @@ Enabling this will disable popup dialog about status when using buld download bu
 Time to wait before retrying in case download fails due to Recoverable issues like network errors
 
 ### 6. Download end skip (Bytes)
-Sometimes, last few bytes cannot be downloaded from spotify which causes 'PD Error' to show up and causes downloads to fail constantly, this sets up the number of bytes to skip downloading if this happens.
+Sometimes, last few bytes cannot be downloaded which causes 'PD Error' to show up and causes downloads to fail constantly, this sets up the number of bytes to skip downloading if this happens.
 The value might change but the current working vaue is '167' bytes. If you get 'Decode errors' or Incomplete song downloads try setting it to 0
 
 ### 7. Force Artist/Album dir for track/playlist items
@@ -96,11 +99,16 @@ Format of media you want your final music download to be in. ( Do not include '.
 
 
 # Issues
-Decode error : If you are getting into this error, your account might have got restriction from spotify. Try removing it and add different one
+Decode error : If you are getting into this error, your account might have got restricted. Wait some time or try dirrerent acc.
 The application may crash frequently as there is no proper exception handling yet. You can help by opening a new issue wih error message displayed on your console window after the application misbehaves.
 The readme also needs to be written properly.
 
-
+# TODOS
+ - Synced lyrics downloads
+ - Improve UI/UX ( Suggestions needed by users )
+ - Refactor code
+ - ....
+ 
 # Contributing/Supporting
 Current readme can be hard to understand due to improprt emglish. You can improve user experience by improving it.
 You can write code to include additional feature or bug fixes or make a issue regarding bugs and features or just spread the work about the application :)
