@@ -12,8 +12,6 @@ Make sure python3 is installed on your system then:
   - Install the dependencies with ```pip install -r requirements.txt```
   - Launch the application with ```python3 onthespot.py```
 
-Binary releases for windows will be worked on soon :). Note that this is in early stage of development, and some features are yet to be added. If you have ideas for improvement/features, create an issue for discussion !
-
  
 # Running using binaries
 ## On Linux
