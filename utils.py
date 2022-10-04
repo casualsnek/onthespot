@@ -1,10 +1,16 @@
-import os
+import os, platform
 from librespot.core import Session
 import time
-import re
+import re, json
 from runtimedata import get_logger
 import traceback
+from spotutils import search_by_term
+import subprocess
 
+
+if platform.system() == "Windows":
+    from winsdk.windows.media.control import \
+    GlobalSystemMediaTransportControlsSessionManager as MediaManager
 
 logger = get_logger("utils")
 
@@ -185,3 +191,34 @@ def get_url_data(url):
     else:
         logger.error(f"Parse result for url '{url}' failed, invalid spotify url !")
         return None, None
+
+def get_now_playing_local(session):
+    if platform.system() == "Linux":
+        logger.debug("Linux detected ! Use playerctl to get current track information..")
+        playctl_out = subprocess.check_output(["playerctl", "-p", "spotify", "metadata"])
+        found = re.search(r"((spotify xesam:url).*https:\/\/open.spotify.*\n)", playctl_out.decode())
+        if found:
+            spotify_url = found.group(1).replace("spotify xesam:url", "").strip()
+            return spotify_url
+        else:
+            return ""
+    elif platform.system() == "Windows":
+        logger.debug("Windows detected ! Using unreliable search method to get media info")
+        info_dict = None
+        sessions = MediaManager.request_async()
+        current_session = sessions.get_current_session()
+        if current_session:
+            if current_session.source_app_user_model_id == "Spotify.exe":
+                info = current_session.try_get_media_properties_async()
+                info_dict = {song_attr: info.__getattribute__(song_attr) for song_attr in dir(info) if song_attr[0] != '_'}
+                info_dict['genres'] = list(info_dict['genres'])
+        if info_dict:
+            query_str = f"{info_dict['title']} {info_dict['artist']} {info_dict['album_title']}".strip()
+            results = search_by_term(session, query_str, max_results=1, content_types=["track"])
+            if len(results["tracks"]) > 0:
+                return results["tracks"][0]["external_urls"]["spotify"]
+            else:
+                return ""
+    else:
+        logger.debug("Unsupported platform for auto download !")
+        return ""

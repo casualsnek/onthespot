@@ -97,7 +97,8 @@ def convert_audio_format(filename, quality):
         bitrate = "320k"
     else:
         bitrate = "160k"
-    raw_audio.export(filename, format=config.get("media_format"), bitrate=bitrate)
+    out_file = raw_audio.export(filename, format=config.get("media_format"), bitrate=bitrate)
+    out_file.close()
 
 
 def conv_artist_format(artists):
@@ -128,7 +129,9 @@ def set_music_thumbnail(filename, image_url):
     tags.save()
 
 
-def search_by_term(session, search_term, max_results=20)->dict:
+def search_by_term(session, search_term, max_results=20, content_types=None)->dict:
+    if content_types is None:
+        content_types = ["track", "album", "playlist", "artist"]
     logger.info(f"Get search result for term '{search_term}', max items '{max_results}'")
     token = session.tokens().get("user-read-email")
     resp = requests.get(
@@ -137,16 +140,18 @@ def search_by_term(session, search_term, max_results=20)->dict:
             "limit": max_results,
             "offset": "0",
             "q": search_term,
-            "type": "track,album,playlist,artist"
+            "type": ",".join(c_type for c_type in content_types)
         },
         headers={"Authorization": "Bearer %s" % token},
     )
     results = {
-            "tracks": resp.json()["tracks"]["items"],
-            "albums": resp.json()["albums"]["items"],
-            "playlists": resp.json()["playlists"]["items"],
-            "artists": resp.json()["artists"]["items"],
+            "tracks": [],
+            "albums": [],
+            "playlists": [],
+            "artists": [],
         }
+    for c_type in content_types:
+        results[c_type+"s"] = resp.json()[c_type+"s"]["items"]
     if len(results["tracks"]) + len(results["albums"]) + len(results["artists"]) + len(results["playlists"]) == 0:
         logger.warning(f"No results for term '{search_term}', max items '{max_results}'")
         raise EmptySearchResultException("No result found for search term '{}' ".format(search_term))
@@ -219,6 +224,7 @@ class DownloadWorker(QObject):
         SKIP_EXISTING_FILES = True
         CHUNK_SIZE = config.get("chunk_size")
         quality = AudioQuality.HIGH
+        trk_track_id_str = track_id_str
         if check_premium(session):
             quality = AudioQuality.VERY_HIGH
         try:
@@ -243,18 +249,18 @@ class DownloadWorker(QObject):
                 )+"."+config.get("media_format")
             filename = os.path.join(config.get("download_root"), extra_paths, song_name)
         except Exception as e:
-            logger.error(f"Metadata fetching failed for track by id '{track_id_str}'")
-            self.progress.emit([track_id_str, "Get metadata failed", None])
+            logger.error(f"Metadata fetching failed for track by id '{trk_track_id_str}'")
+            self.progress.emit([trk_track_id_str, "Get metadata failed", None])
             return False
         try:
             if not is_playable:
-                self.progress.emit([track_id_str, "Unavailable", None])
-                logger.error(f"Track is unavailable, track id '{track_id_str}'")
+                self.progress.emit([trk_track_id_str, "Unavailable", None])
+                logger.error(f"Track is unavailable, track id '{trk_track_id_str}'")
                 return False
             else:
                 if os.path.isfile(filename) and os.path.getsize(filename) and SKIP_EXISTING_FILES:
-                    self.progress.emit([track_id_str, "Already exists", [100, 100]])
-                    logger.info(f"File already exists, Skipping download for track by id '{track_id_str}'")
+                    self.progress.emit([trk_track_id_str, "Already exists", [100, 100]])
+                    logger.info(f"File already exists, Skipping download for track by id '{trk_track_id_str}'")
                     return False
                 else:
                     if track_id_str != scraped_song_id:
@@ -271,60 +277,60 @@ class DownloadWorker(QObject):
                     with open(filename, 'wb') as file:
                         while downloaded < total_size:
                             data = stream.input_stream.stream().read(_CHUNK_SIZE)
-                            logger.debug(f"Reading chunk of {_CHUNK_SIZE} bytes for track by id '{track_id_str}'")
+                            logger.debug(f"Reading chunk of {_CHUNK_SIZE} bytes for track by id '{trk_track_id_str}'")
                             downloaded += len(data)
                             if len(data) != 0:
                                 file.write(data)
-                                self.progress.emit([track_id_str, None, [downloaded, total_size]])
+                                self.progress.emit([trk_track_id_str, None, [downloaded, total_size]])
                             if len(data) == 0 and _CHUNK_SIZE > config.get("dl_end_padding_bytes"):
-                                logger.error(f"PD Error for track by id '{track_id_str}'")
+                                logger.error(f"PD Error for track by id '{trk_track_id_str}', while reading chunk size: {_CHUNK_SIZE}")
                                 fail += 1
                             elif len(data) == 0 and _CHUNK_SIZE <= config.get("dl_end_padding_bytes"):
                                 break
                             if (total_size - downloaded) < _CHUNK_SIZE:
                                 _CHUNK_SIZE = total_size - downloaded
                             if fail > config.get("max_retries"):
-                                self.progress.emit([track_id_str, "RETRY "+str(fail+1), None])
-                                logger.error(f"Max retries exceed for track by id '{track_id_str}'")
-                                self.progress.emit([track_id_str, "PD error. Will retry", None])
+                                self.progress.emit([trk_track_id_str, "RETRY "+str(fail+1), None])
+                                logger.error(f"Max retries exceed for track by id '{trk_track_id_str}'")
+                                self.progress.emit([trk_track_id_str, "PD error. Will retry", None])
                                 if os.path.exists(filename):
                                     os.remove(filename)
                                 return None
-                            self.progress.emit([track_id_str, None, [downloaded, total_size]])
+                            self.progress.emit([trk_track_id_str, None, [downloaded, total_size]])
                     if not config.get("force_raw"):
-                        logger.warning(f"Force raw is disabled for track by id '{track_id_str}', media converting and tagging will be done !")
-                        self.progress.emit([track_id_str, "Converting", None])
+                        logger.warning(f"Force raw is disabled for track by id '{trk_track_id_str}', media converting and tagging will be done !")
+                        self.progress.emit([trk_track_id_str, "Converting", None])
                         convert_audio_format(filename, quality)
-                        self.progress.emit([track_id_str, "Writing metadata", None])
+                        self.progress.emit([trk_track_id_str, "Writing metadata", None])
                         set_audio_tags(filename, artists, name, album_name,
-                                        release_year, disc_number, track_number, track_id_str)
-                        self.progress.emit([track_id_str, "Setting thumbnail", None])
+                                        release_year, disc_number, track_number, trk_track_id_str)
+                        self.progress.emit([trk_track_id_str, "Setting thumbnail", None])
                         set_music_thumbnail(filename, image_url)
-                        self.progress.emit([track_id_str, None, [100, 100]])
-                        self.progress.emit([track_id_str, "Downloaded", None])
-                        logger.info(f"Downloaded track by id '{track_id_str}'")
+                        self.progress.emit([trk_track_id_str, None, [100, 100]])
+                        self.progress.emit([trk_track_id_str, "Downloaded", None])
+                        logger.info(f"Downloaded track by id '{trk_track_id_str}'")
                         return True
                     else:
-                        logger.info(f"Downloaded track by id '{track_id_str}', in raw mode")
+                        logger.info(f"Downloaded track by id '{trk_track_id_str}', in raw mode")
                         return True
         except queue.Empty as e:
             if os.path.exists(filename):
                 os.remove(filename)
-            logger.error(f"Network timeout from spotify for track by id '{track_id_str}', download will be retried !")
-            self.progress.emit([track_id_str, "Timeout. Will retry", None])
+            logger.error(f"Network timeout from spotify for track by id '{trk_track_id_str}', download will be retried !")
+            self.progress.emit([trk_track_id_str, "Timeout. Will retry", None])
             return None
         except pydub.exceptions.CouldntDecodeError as e:
             if os.path.exists(filename):
                 os.remove(filename)
-            logger.error(f"Decoding error for track by id '{track_id_str}', possibly due to use of rate limited spotify account !")
-            self.progress.emit([track_id_str, "Decode error. Will retry", None])
+            logger.error(f"Decoding error for track by id '{trk_track_id_str}', possibly due to use of rate limited spotify account !")
+            self.progress.emit([trk_track_id_str, "Decode error. Will retry", None])
             traceback.print_exc()
             return None
         except Exception as e:
             if os.path.exists(filename):
                 os.remove(filename)
-            self.progress.emit([track_id_str, "Failed", None])
-            logger.error(f"Download failed for track by id '{track_id_str}', Unexpected error: {traceback.format_exc()} !")
+            self.progress.emit([trk_track_id_str, "Failed", None])
+            logger.error(f"Download failed for track by id '{trk_track_id_str}', Unexpected error: {traceback.format_exc()} !")
             return False
 
     def download_episode(self, episode_id_str, extra_paths=""):

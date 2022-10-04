@@ -16,6 +16,7 @@ class Config:
             "track_name_formatter": "{artist} - {album} - {name}",
             "album_name_formatter": "{artist}/[{rel_year}] {album}",
             "playlist_track_force_album_dir": 1,
+            "watch_bg_for_spotify": 0,
             "dl_end_padding_bytes": 167,
             "max_retries": 3,
             "max_search_results": 10,

@@ -23,10 +23,11 @@ def get_logger(name):
     logger.setLevel(loglevel)
     return logger
 
+logger_ = get_logger("runtimedata")
 def handle_exception(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
-    logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+    logger_.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
 sys.excepthook = handle_exception
