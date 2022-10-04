@@ -13,6 +13,27 @@ Make sure python3 is installed on your system then:
   - Launch the application with ```python3 onthespot.py```
 
 Binary releases for windows will be worked on soon :). Note that this is in early stage of development, and some features are yet to be added. If you have ideas for improvement/features, create an issue for discussion !
+=======
+ 
+# Running using binaries
+## On Linux
+Download Latest 'onthespot_linux' from the release section and execute with:
+ ```
+ chmod +x onthespot_linux
+ ./onethespot_linux
+ ```
+ ## On Windows
+Download Latest 'onthespot_win.exe' from the release section and execute by double clicking the downloaded file.
+If your download gets stuck at 99% and ```Converting``` on progress text, you are missing ffmpeg ! Please install it by following the instructions below:
+
+### Installing ffmpeg in windows
+- Open Windows Explorer and Navigate to ```C:\`` Drive and make a folder name ```ffmpeg``` there
+- Download ffmpef zip from [https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z](https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z) then copy the ``bin`` folder from zip to ```C:\ffmpeg```
+- Open CMD as administrator and run the command: ```setx /m PATH "C:\ffmpeg\bin;%PATH%"```
+
+Now the application should work as expected.
+
+If you have ideas for improvement/features create a issue or join discord server for discussion !
 
 # Getting started
 On first launch, you might get a warning that no accounts have been added and the threads are not started.
