@@ -322,7 +322,9 @@ class DownloadWorker(QObject):
             return None
         except Exception as e:
             if os.path.exists(filename):
+                os.close(int(filename))                  # Close before removing to avoid PermissionError: [WinError 32] - @dylanrsmith
                 os.remove(filename)
+
             self.progress.emit([track_id_str, "Failed", None])
             logger.error(f"Download failed for track by id '{track_id_str}', Unexpected error: {traceback.format_exc()} !")
             return False
