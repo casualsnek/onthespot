@@ -5,15 +5,26 @@ qt based music downloader written in python
 
 ### Just created this discord for discussions: [Discord Invite](https://discord.gg/2t6BNVgZ)
 
-# Installing and launching application
+# Installing and launching application from source
 Make sure python3 is installed on your system then:
   - Clone or download and extract the repository file: ```git clone https://github.com/casualsnek/onethespot```
   - Navigate to the onthespot directory ```cd onethespot```
   - Install the dependencies with ```pip install -r requirements.txt```
   - Launch the application with ```python3 onthespot.py```
+  
+# Running using binaries
+## On Linux
+Download Latest 'onthespot_linux' from the release section and execute with
+ ```
+ chmod +x onthespot_linux
+ ./onethespot_linux
+ ```
+ ## On Windows
+Download Latest 'onthespot_win.exe' from the release section and execute by double clicking the downloaded file
+If your downloads gets stuck at 99% and ```Converting``` on progress text, you are missing ffmpeg ! Please install it
 
 
-Binary release are for windows will be worked on soon :). Note that it in early stage of development and features will be added . If you have ideas for improvement/features create a issue for discussion !
+If you have ideas for improvement/features create a issue or join discord server for discussion !
 
 
 # Getting started
