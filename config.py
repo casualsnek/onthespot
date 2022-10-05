@@ -11,7 +11,7 @@ class Config:
         self.platform = platform.system()
         def_ff_path = which("ffmpeg")
         if def_ff_path is None:
-            def_ff_path = os.path.abspath(os.path.join("bin", "ffmpeg"))
+            def_ff_path = os.path.abspath(os.path.join(path.dirname(__file__), "bin", "ffmpeg"))
         else:
             def_ff_path = os.path.dirname(def_ff_path)
         self.__template_data = {
