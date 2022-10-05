@@ -1,12 +1,19 @@
 import os
 import json
-
+import platform
+from shutil import which
 
 class Config:
     def __init__(self, cfg_path=None):
         if cfg_path is None:
             cfg_path = config_file_path = os.path.join(os.path.expanduser("~"), ".config", "casualOnTheSpot", "config.json")
         self.__cfg_path = cfg_path
+        self.platform = platform.system()
+        def_ff_path = which("ffmpeg")
+        if def_ff_path is None:
+            def_ff_path = os.path.abspath(os.path.join("bin", "ffmpeg"))
+        else:
+            def_ff_path = os.path.dirname(def_ff_path)
         self.__template_data = {
             "max_threads": 1,
             "parsing_acc_sn": 1,
@@ -24,6 +31,7 @@ class Config:
             "force_raw": False,
             "force_premium": False,
             "chunk_size": 50000,
+            "ffmpeg_bin_dir": def_ff_path,
             "recoverable_fail_wait_delay": 10,
             "disable_bulk_dl_notices": True,
             "accounts": [  ]
@@ -37,6 +45,8 @@ class Config:
             self.__config = self.__template_data
         os.makedirs(self.get("download_root"), exist_ok=True)
         os.makedirs(os.path.dirname(self.get("log_file")), exist_ok=True)
+        if which("ffmpeg") is None:
+            os.environ["PATH"] = def_ff_path + os.pathsep + os.environ["PATH"]
 
     def get(self, key, default=None):
         if key in self.__config:

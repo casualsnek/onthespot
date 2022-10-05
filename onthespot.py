@@ -61,6 +61,7 @@ class MediaWatcher(QObject):
         while not self.__stop:
             try:
                 spotify_url = get_now_playing_local(session_pool[config.get("parsing_acc_sn")-1])
+                spotify_url = spotify_url.strip() if spotify_url is not None else ""
                 if spotify_url != "" and spotify_url != self.last_url:
                     logger.info(f"Desktop application media changed to: {spotify_url}")
                     self.last_url = spotify_url
@@ -184,7 +185,7 @@ class MainWindow(QMainWindow):
         self.btn_save_adv_config.clicked.connect(self.__update_config)
         self.btn_login_add.clicked.connect(self.__add_account)
         self.btn_search.clicked.connect(self.__get_search_results)
-        self.btn_url_download.clicked.connect(self.__download_by_url)
+        self.btn_url_download.clicked.connect(lambda x: self.__download_by_url(self.inp_dl_url.text()))
         self.inp_enable_spot_watch.stateChanged.connect(self.__media_watcher_set)
 
         self.btn_search_download_all.clicked.connect(lambda x, cat="all": self.__mass_action_dl(cat))
@@ -553,8 +554,6 @@ class MainWindow(QMainWindow):
             return None
 
     def __download_by_url(self, url=None, hide_dialog=False):
-        if url is None:
-            url = self.inp_dl_url.text().strip()
         logger.info(f"URL download clicked with value {url}")
         media_type, media_id = get_url_data(url)
         if media_type is None:

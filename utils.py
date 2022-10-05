@@ -6,6 +6,7 @@ from runtimedata import get_logger
 import traceback
 from spotutils import search_by_term
 import subprocess
+import asyncio
 
 
 if platform.system() == "Windows":
@@ -203,22 +204,34 @@ def get_now_playing_local(session):
         else:
             return ""
     elif platform.system() == "Windows":
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         logger.debug("Windows detected ! Using unreliable search method to get media info")
         info_dict = None
-        sessions = MediaManager.request_async()
+        sessions = loop.run_until_complete(MediaManager.request_async())
         current_session = sessions.get_current_session()
         if current_session:
             if current_session.source_app_user_model_id == "Spotify.exe":
-                info = current_session.try_get_media_properties_async()
+                logger.debug("Spotify running..")
+                info = loop.run_until_complete(current_session.try_get_media_properties_async())
                 info_dict = {song_attr: info.__getattribute__(song_attr) for song_attr in dir(info) if song_attr[0] != '_'}
                 info_dict['genres'] = list(info_dict['genres'])
         if info_dict:
             query_str = f"{info_dict['title']} {info_dict['artist']} {info_dict['album_title']}".strip()
+            logger.debug(f"Spotify running and playing {query_str}")
             results = search_by_term(session, query_str, max_results=1, content_types=["track"])
             if len(results["tracks"]) > 0:
-                return results["tracks"][0]["external_urls"]["spotify"]
+                try:
+                    link =  results["tracks"][0]["external_urls"]["spotify"]
+                    logger.debug(f"Spotify now playing {link}")
+                    return link
+                except (KeyError, IndexError):
+                    return ""
             else:
+                logger.debug(f"No result for currently playing track")
                 return ""
+        else:
+            return ""
     else:
         logger.debug("Unsupported platform for auto download !")
         return ""

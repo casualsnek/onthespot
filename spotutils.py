@@ -20,6 +20,12 @@ from runtimedata import get_logger
 
 logger = get_logger("spotutils")
 requests.adapters.DEFAULT_RETRIES = 10
+ext_ = ".exe" if config.platform == "Windows" else ""
+AudioSegment.converter = os.path.join(config.get("ffmpeg_bin_dir"), "ffmpeg"+ext_)
+AudioSegment.ffmpeg = os.path.join(config.get("ffmpeg_bin_dir"), "ffmpeg"+ext_)
+AudioSegment.ffprobe =os.path.join(config.get("ffmpeg_bin_dir"), "ffprobe"+ext_)
+
+logger.info(f"AudioSegment Config: {AudioSegment.converter}, {AudioSegment.ffmpeg}, {AudioSegment.ffprobe}")
 
 def get_artist_albums(session, artist_id):
     logger.info(f"Get albums for artist by id '{artist_id}'")
@@ -130,9 +136,18 @@ def set_music_thumbnail(filename, image_url):
 
 
 def search_by_term(session, search_term, max_results=20, content_types=None)->dict:
+    results = {
+            "tracks": [],
+            "albums": [],
+            "playlists": [],
+            "artists": [],
+        }
+    logger.info(f"Get search result for term '{search_term}', max items '{max_results}'")
+    if search_term.strip() == "":
+        logger.warning(f"Returning empty data as query is empty !")
+        return results
     if content_types is None:
         content_types = ["track", "album", "playlist", "artist"]
-    logger.info(f"Get search result for term '{search_term}', max items '{max_results}'")
     token = session.tokens().get("user-read-email")
     resp = requests.get(
         "https://api.spotify.com/v1/search",
@@ -144,12 +159,6 @@ def search_by_term(session, search_term, max_results=20, content_types=None)->di
         },
         headers={"Authorization": "Bearer %s" % token},
     )
-    results = {
-            "tracks": [],
-            "albums": [],
-            "playlists": [],
-            "artists": [],
-        }
     for c_type in content_types:
         results[c_type+"s"] = resp.json()[c_type+"s"]["items"]
     if len(results["tracks"]) + len(results["albums"]) + len(results["artists"]) + len(results["playlists"]) == 0:

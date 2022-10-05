@@ -15,7 +15,7 @@ log_handler.setFormatter(log_formatter)
 download_queue = Queue()
 thread_pool = []
 session_pool = []
-loglevel = int(os.environ.get("LOGLEVEL", 20))
+loglevel = int(os.environ.get("LOG_LEVEL", 20))
 def get_logger(name):
     logger = logging.getLogger(name)
     logger.addHandler(log_handler)
