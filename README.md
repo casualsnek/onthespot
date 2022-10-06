@@ -7,7 +7,7 @@ If you have an idea for an improvement or feature, create a issue or join the di
 
 # 1. Installing/launching application:
 ## 1.1. From source
-Make sure [python3](https://www.python.org/downloads) and [Git](https://git-scm.com/downloads) are installed on your system then
+Make sure [python3](https://www.python.org/downloads) and [Git](https://git-scm.com/downloads) are installed on your system, if you are on windows you also need to install Microsoft C++ build tools from [HERE](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and restart your computer before starting build process.
   - Download or Clone the repo ```git clone https://github.com/casualsnek/onthespot```
   - Navigate to the onthespot directory ```cd onthespot```
   - Install the dependencies with ```pip install -r requirements.txt```
