@@ -368,6 +368,7 @@ class MainWindow(QMainWindow):
             removed = remove_user(username, os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "sessions"), config)
             if removed:
                 self.tbl_sessions.removeRow(index.row())
+                self.__users = [user for user self.__users if user[0] == username]
                 self.__splash_dialog.run("Account '{}' was removed successfully!\nThis account session will remain used until application restart.".format(username))
             else:
                 self.__splash_dialog.run("Something went wrong while removing account with username '{}' !".format(username))
