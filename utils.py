@@ -11,7 +11,7 @@ if platform.system() == "Windows":
         GlobalSystemMediaTransportControlsSessionManager as MediaManager
 
 logger = get_logger("utils")
-
+media_tracker_last_query = ''
 
 def login_user(username: str, password: str, login_data_dir: str) -> list:
     logger.info(f"logging in user '{username[:4]}****@****.***'")
@@ -213,9 +213,14 @@ def name_by_from_sdata(d_key, item):
 
 
 def get_now_playing_local(session):
+    global media_tracker_last_query
     if platform.system() == "Linux":
         logger.debug("Linux detected ! Use playerctl to get current track information..")
-        playerctl_out = subprocess.check_output(["playerctl", "-p", "spotify", "metadata"])
+        try:
+            playerctl_out = subprocess.check_output(["playerctl", "-p", "spotify", "metadata"])
+        except (subprocess.CalledProcessError):
+            logger.debug("Spotify not running..")
+            return ""
         found = re.search(r"((spotify xesam:url).*https:\/\/open.spotify.*\n)", playerctl_out.decode())
         if found:
             spotify_url = found.group(1).replace("spotify xesam:url", "").strip()
@@ -239,7 +244,10 @@ def get_now_playing_local(session):
         if info_dict:
             query_str = f"{info_dict['title']} {info_dict['artist']} {info_dict['album_title']}".strip()
             logger.debug(f"Spotify running and playing {query_str}")
+            if media_tracker_last_query == query_str:
+                return ""
             results = search_by_term(session, query_str, max_results=1, content_types=["track"])
+            media_tracker_last_query = query_str
             if len(results["tracks"]) > 0:
                 try:
                     link = results["tracks"][0]["external_urls"]["spotify"]

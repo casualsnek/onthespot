@@ -1,6 +1,7 @@
 import os
 import json
 import platform
+import shutil
 from shutil import which
 
 
@@ -17,6 +18,7 @@ class Config:
         else:
             def_ff_path = os.path.dirname(def_ff_path)
         self.__template_data = {
+            "version": 0.4,
             "max_threads": 1,
             "parsing_acc_sn": 1,
             "download_root": os.path.join(os.path.expanduser("~"), "Music", "OnTheSpot"),
@@ -73,6 +75,12 @@ class Config:
         os.makedirs(os.path.dirname(self.__cfg_path), exist_ok=True)
         with open(self.__cfg_path, "w") as cf:
             cf.write(json.dumps(self.__config))
+
+    def rollback(self):
+        shutil.rmtree(os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "sessions"))
+        with open(self.__cfg_path, "w") as cf:
+            cf.write(json.dumps(self.__template_data))
+        self.__config = self.__template_data
 
 
 config = Config()

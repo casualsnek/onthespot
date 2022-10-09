@@ -962,6 +962,12 @@
         </item>
         <item>
          <widget class="QGroupBox" name="groupBox_24">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
@@ -974,9 +980,31 @@
           <property name="flat">
            <bool>true</bool>
           </property>
-          <layout class="QVBoxLayout" name="verticalLayout_13">
+          <layout class="QHBoxLayout" name="horizontalLayout_30">
+           <item>
+            <widget class="QPushButton" name="btn_seset_config">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">background-color: rgba(255, 0, 0, 100);</string>
+             </property>
+             <property name="text">
+              <string>Reset config to default</string>
+             </property>
+            </widget>
+           </item>
            <item>
             <widget class="QPushButton" name="btn_save_adv_config">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
              <property name="text">
               <string>Save configuration</string>
              </property>

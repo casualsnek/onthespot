@@ -15,7 +15,6 @@ from spotutils import search_by_term, get_album_name, get_album_tracks, get_arti
     get_show_episodes, get_tracks_from_playlist, get_song_info, get_episode_info, get_playlist_data
 from showinfm import show_in_file_manager
 
-
 logger = get_logger("onethespot")
 
 
@@ -67,7 +66,7 @@ class MediaWatcher(QObject):
                     logger.info(f'Desktop application media changed to: {spotify_url}')
                     self.last_url = spotify_url
                     self.changed_media.emit(spotify_url, True)
-                time.sleep(1)
+                time.sleep(3)
             except FileNotFoundError:
                 logger.error('Background monitor failed ! Playerctl not installed')
                 break
@@ -75,6 +74,7 @@ class MediaWatcher(QObject):
 
     def stop(self):
         self.__stop = True
+
 
 class PlayListMaker(QObject):
     changed_media = pyqtSignal(str, bool)
@@ -261,9 +261,9 @@ class ParsingQueueProcessor(QObject):
                             os.path.join(
                                 config.get('download_root'),
                                 config.get('playlist_name_formatter').format(name=name, owner=owner['display_name'],
-                                                                         description=description)+".m3u8")
+                                                                             description=description) + ".m3u8")
                         ),
-                        'tracks': [ ]
+                        'tracks': []
                     }
                 for song in playlist_songs:
                     if song['track']['id'] is not None:
@@ -311,6 +311,7 @@ class MainWindow(QMainWindow):
         self.btn_url_download.clicked.connect(lambda x: self.__download_by_url(self.inp_dl_url.text()))
         self.inp_enable_spot_watch.stateChanged.connect(self.__media_watcher_set)
         self.inp_create_playlists.stateChanged.connect(self.__m3u_maker_set)
+        self.btn_seset_config.clicked.connect(self.__reset_app)
 
         self.btn_search_download_all.clicked.connect(lambda x, cat="all": self.__mass_action_dl(cat))
         self.btn_search_download_tracks.clicked.connect(lambda x, cat="tracks": self.__mass_action_dl(cat))
@@ -390,7 +391,7 @@ class MainWindow(QMainWindow):
         tbl_dl_progress_header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         logger.info("Main window init completed !")
 
-    def __m3u_maker_set (self):
+    def __m3u_maker_set(self):
         logger.info("Playlist generator watcher set clicked")
         maker_enabled = self.inp_create_playlists.isChecked()
         if maker_enabled and self.__playlist_maker is None:
@@ -439,6 +440,10 @@ class MainWindow(QMainWindow):
         logger.info("Watcher stopped")
         if self.inp_create_playlists.isChecked():
             self.inp_create_playlists.setChecked(False)
+
+    def __reset_app(self):
+        config.rollback()
+        self.__show_popup_dialog("The application setting was cleared successfully !\n Please restart the application.")
 
     def __playlist_maker_stopped(self):
         logger.info("Watcher stopped")
