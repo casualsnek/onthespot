@@ -24,6 +24,9 @@ session_pool = []
 failed_downloads = {}
 cancel_list = {}
 downloads_status = {}
+playlist_m3u_queue = {}
+downloaded_data = {}
+
 loglevel = int(os.environ.get("LOG_LEVEL", 20))
 
 

@@ -35,6 +35,15 @@ def get_artist_albums(session, artist_id):
     return [resp['items'][i]['id'] for i in range(len(resp['items']))]
 
 
+def get_playlist_data(session, playlist_id):
+    logger.info(f"Get playlist dump for '{playlist_id}'")
+    access_token = session.tokens().get("user-read-email")
+    headers = {'Authorization': f'Bearer {access_token}'}
+    resp = requests.get(
+        f'https://api.spotify.com/v1/playlists/{playlist_id}', headers=headers).json()
+    return resp['name'], resp['owner'], resp['description'], resp['external_urls']['spotify']
+
+
 def get_track_lyrics(session, track_id, forced_synced):
     lyrics = []
     try:
@@ -53,18 +62,18 @@ def get_track_lyrics(session, track_id, forced_synced):
             if lyrics_json['kind'].lower() == 'text':
                 # It's un synced lyrics, if not forcing synced lyrics return it
                 if not forced_synced:
-                    lyrics = [ line['words'][0]['string'] for line in lyrics_json['lines'] ]
+                    lyrics = [line['words'][0]['string'] for line in lyrics_json['lines']]
             elif lyrics_json['kind'].lower() == 'line':
                 for line in lyrics_json['lines']:
                     minutes, seconds = divmod(line['time'] / 1000, 60)
                     lyrics.append(f'[{minutes:0>2.0f}:{seconds:05.2f}] {line["words"][0]["string"]}')
         else:
             logger.warning(f'Failed to get lyrics for track id: {track_id}, '
-                         f'statucode: {lyrics_json_req.status_code}, Text: {lyrics_json_req.text}')
+                           f'statucode: {lyrics_json_req.status_code}, Text: {lyrics_json_req.text}')
     except (KeyError, IndexError):
         logger.error(f'Failed to get lyrics for track id: {track_id}, '
                      f'statucode: {lyrics_json_req.status_code}, Text: {lyrics_json_req.text}')
-    return None if len(lyrics) <=2 else '\n'.join(lyrics)
+    return None if len(lyrics) <= 2 else '\n'.join(lyrics)
 
 
 def get_tracks_from_playlist(session, playlist_id):
@@ -315,7 +324,8 @@ class DownloadWorker(QObject):
                 return False
             else:
                 if os.path.isfile(filename) and os.path.getsize(filename) and skip_existing_file:
-                    self.progress.emit([trk_track_id_str, "Already exists", [100, 100]])
+                    self.progress.emit([trk_track_id_str, "Already exists", [100, 100],
+                                        filename, f'{name} [{_artist} - {album_name}:{release_year}].mp3'])
                     logger.info(f"File already exists, Skipping download for track by id '{trk_track_id_str}'")
                     return True
                 else:
@@ -373,8 +383,10 @@ class DownloadWorker(QObject):
                                        release_year, disc_number, track_number, trk_track_id_str)
                         self.progress.emit([trk_track_id_str, "Setting thumbnail", None])
                         set_music_thumbnail(filename, image_url)
-                        self.progress.emit([trk_track_id_str, None, [100, 100]])
-                        self.progress.emit([trk_track_id_str, "Downloaded", None])
+
+                        self.progress.emit([trk_track_id_str, "Downloaded", [100, 100],
+                                            filename, f'{name} [{_artist} - {album_name}:{release_year}].mp3'])
+
                         logger.info(f"Downloaded track by id '{trk_track_id_str}'")
                         if config.get('inp_enable_lyrics'):
                             logger.info(f'Fetching lyrics for track id: {trk_track_id_str}, '
@@ -383,7 +395,7 @@ class DownloadWorker(QObject):
                                 lyrics = get_track_lyrics(session, trk_track_id_str, config.get('only_synced_lyrics'))
                                 if lyrics:
                                     logger.info(f'Found lyrics for: {trk_track_id_str}, writing...')
-                                    with open(filename[0:-len(config.get('media_format'))]+'lrc', 'w') as f:
+                                    with open(filename[0:-len(config.get('media_format'))] + 'lrc', 'w') as f:
                                         f.write(lyrics)
                                     logger.info(f'lyrics saved for: {trk_track_id_str}')
                             except:
@@ -392,6 +404,8 @@ class DownloadWorker(QObject):
                         return True
                     else:
                         logger.info(f"Downloaded track by id '{trk_track_id_str}', in raw mode")
+                        self.progress.emit([trk_track_id_str, "Downloaded", [100, 100],
+                                            filename, f'{name} [{_artist} - {album_name}:{release_year}].mp3'])
                         return True
         except queue.Empty:
             if os.path.exists(filename):

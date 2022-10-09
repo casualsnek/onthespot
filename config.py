@@ -24,6 +24,7 @@ class Config:
             "download_delay": 5,
             "track_name_formatter": "{artist} - {album} - {name}",
             "album_name_formatter": "{artist}"+os.path.sep+"[{rel_year}] {album}",
+            "playlist_name_formatter": "MyPlaylists"+os.path.sep+"{name} by {owner}",
             "playlist_track_force_album_dir": 1,
             "watch_bg_for_spotify": 0,
             "dl_end_padding_bytes": 167,
@@ -38,6 +39,7 @@ class Config:
             "disable_bulk_dl_notices": True,
             "inp_enable_lyrics": True,
             "only_synced_lyrics": False,
+            'create_m3u_playlists': False,
             "accounts": []
         }
         if os.path.isfile(self.__cfg_path):

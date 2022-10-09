@@ -1,4 +1,3 @@
-import re
 import queue
 import time
 import sys
@@ -8,12 +7,14 @@ from config import config
 from exceptions import *
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from runtimedata import thread_pool, session_pool, download_queue, get_logger, cancel_list, failed_downloads, \
-    downloads_status
+    downloads_status, playlist_m3u_queue, downloaded_data
 from utils import login_user, remove_user, get_url_data, get_now_playing_local, name_by_from_sdata
 from PyQt5.QtWidgets import QMainWindow, QHeaderView, QFileDialog, QPushButton, QTableWidgetItem, \
     QApplication, QDialog, QProgressBar, QLabel, QHBoxLayout, QWidget
 from spotutils import search_by_term, get_album_name, get_album_tracks, get_artist_albums, DownloadWorker, \
-    get_show_episodes, get_tracks_from_playlist, get_song_info, get_episode_info
+    get_show_episodes, get_tracks_from_playlist, get_song_info, get_episode_info, get_playlist_data
+from showinfm import show_in_file_manager
+
 
 logger = get_logger("onethespot")
 
@@ -70,6 +71,46 @@ class MediaWatcher(QObject):
             except FileNotFoundError:
                 logger.error('Background monitor failed ! Playerctl not installed')
                 break
+        self.finished.emit()
+
+    def stop(self):
+        self.__stop = True
+
+class PlayListMaker(QObject):
+    changed_media = pyqtSignal(str, bool)
+    finished = pyqtSignal()
+    __stop = False
+
+    def run(self):
+        logger.info('Playlist m3u8 builder is running....')
+        while not self.__stop:
+            play_queue = playlist_m3u_queue.copy()
+            ddc = downloaded_data.copy()
+            print(ddc, play_queue)
+            for play_id in play_queue:
+                logger.info(f'Playlist m3u8 checking ID {play_id}')
+                if set(play_queue[play_id]['tracks']).intersection(set(ddc.keys())) == set(
+                        play_queue[play_id]['tracks']):
+                    logger.info(f'Playlist {play_id} has all items ready, making m3u8 playlist at: '
+                                f'{{play_queue[play_id]["filename"]}}!')
+                    # Write the m3u8 header
+                    os.makedirs(os.path.dirname(play_queue[play_id]['filename']), exist_ok=True)
+                    with open(play_queue[play_id]['filename'], 'w') as f:
+                        f.write('#EXTM3U\n')
+                    tid = 1
+                    for track_id in play_queue[play_id]['tracks']:
+                        logger.info(f'Playlist: {play_id}, adding track: {track_id} to m3u8')
+                        with open(play_queue[play_id]['filename'], 'a') as f:
+                            f.write(
+                                f'#EXTINF:{tid}, {downloaded_data[track_id]["media_name"]}\n'
+                                f'{downloaded_data[track_id]["media_path"]}\n'
+                            )
+                        tid = tid + 1
+                    logger.info(f'Playlist: {play_id} created, removing fro queue list')
+                    playlist_m3u_queue.pop(play_id)
+                else:
+                    logger.info(f"Playlist {play_id} has some items left to download")
+            time.sleep(4)
         self.finished.emit()
 
     def stop(self):
@@ -202,21 +243,36 @@ class ParsingQueueProcessor(QObject):
                     self.progress.emit(f"Added episode '{episode_name}' of {podcast_name} to download queue!")
             elif item['media_type'] == "playlist":
                 item_name = item['data'].get('media_title', '')
+                enable_m3u = config.get('create_m3u_playlists', False)
+                name, owner, description, url = get_playlist_data(session, item["media_id"])
                 if not item['data'].get('hide_dialogs', False):
                     self.progress.emit(
-                        f"Tracks in playlist {item_name} is being parsed and will be added to download queue shortly!"
+                        f"Tracks in playlist '{item_name}' by {owner['display_name']} is being parsed and "
+                        f"will be added to download queue shortly!"
                     )
                 playlist_songs = get_tracks_from_playlist(session_pool[config.get("parsing_acc_sn") - 1],
                                                           item['media_id'])
                 enqueue_part_cfg = {'extra_paths': item['data'].get('dl_path', ''),
                                     'dl_path_override': True if item['data'].get('dl_path', None) else False
                                     }
+                if enable_m3u:
+                    playlist_m3u_queue[item['media_id']] = {
+                        'filename': os.path.abspath(
+                            os.path.join(
+                                config.get('download_root'),
+                                config.get('playlist_name_formatter').format(name=name, owner=owner['display_name'],
+                                                                         description=description)+".m3u8")
+                        ),
+                        'tracks': [ ]
+                    }
                 for song in playlist_songs:
                     if song['track']['id'] is not None:
+                        if enable_m3u:
+                            playlist_m3u_queue[item['media_id']]['tracks'].append(song['track']['id'])
                         self.enqueue_tracks([song['track']], enqueue_part_cfg=enqueue_part_cfg,
-                                            log_id=f'{item_name}:{item["media_id"]}', itemtype="PlaylistItem")
+                                            log_id=f'{item_name}:{item["media_id"]}', itemtype=f"Playlis [{name}]")
                 if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(f"Added playlist {item_name} to download queue !")
+                    self.progress.emit(f"Added playlist '{item_name}' by {owner['display_name']} to download queue !")
             elif item['media_type'] == 'track':
                 artists, album_name, name, image_url, release_year, disc_number, track_number, scraped_song_id, \
                 is_playable = get_song_info(session, item['media_id'])
@@ -254,7 +310,7 @@ class MainWindow(QMainWindow):
         self.btn_search.clicked.connect(self.__get_search_results)
         self.btn_url_download.clicked.connect(lambda x: self.__download_by_url(self.inp_dl_url.text()))
         self.inp_enable_spot_watch.stateChanged.connect(self.__media_watcher_set)
-        
+        self.inp_create_playlists.stateChanged.connect(self.__m3u_maker_set)
 
         self.btn_search_download_all.clicked.connect(lambda x, cat="all": self.__mass_action_dl(cat))
         self.btn_search_download_tracks.clicked.connect(lambda x, cat="tracks": self.__mass_action_dl(cat))
@@ -267,6 +323,7 @@ class MainWindow(QMainWindow):
         self.btn_progress_cancel_all.clicked.connect(self.__cancel_all_downloads)
         self.btn_progress_retry_all.clicked.connect(self.__retry_all_failed)
 
+        self.__playlist_maker = None
         self.__users = []
         self.__media_watcher = None
         self.__media_watcher_thread = None
@@ -333,6 +390,28 @@ class MainWindow(QMainWindow):
         tbl_dl_progress_header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         logger.info("Main window init completed !")
 
+    def __m3u_maker_set (self):
+        logger.info("Playlist generator watcher set clicked")
+        maker_enabled = self.inp_create_playlists.isChecked()
+        if maker_enabled and self.__playlist_maker is None:
+            logger.info("Starting media watcher thread, no active watcher")
+            self.__playlist_maker = PlayListMaker()
+            self.__playlist_maker_thread = QThread(parent=self)
+            self.__playlist_maker.moveToThread(self.__playlist_maker_thread)
+            self.__playlist_maker_thread.started.connect(self.__playlist_maker.run)
+            self.__playlist_maker.finished.connect(self.__playlist_maker_thread.quit)
+            self.__playlist_maker.finished.connect(self.__playlist_maker.deleteLater)
+            self.__playlist_maker.finished.connect(self.__playlist_maker_stopped)
+            self.__playlist_maker_thread.finished.connect(self.__playlist_maker_thread.deleteLater)
+            self.__playlist_maker_thread.start()
+            logger.info("Playlist thread started")
+        if maker_enabled is False and self.__playlist_maker is not None:
+            logger.info("Active playlist maker, stopping it")
+            self.__playlist_maker.stop()
+            time.sleep(2)
+            self.__playlist_maker = None
+            self.__playlist_maker_thread = None
+
     def __media_watcher_set(self):
         logger.info("Media watcher set clicked")
         media_watcher_enabled = self.inp_enable_spot_watch.isChecked()
@@ -357,6 +436,11 @@ class MainWindow(QMainWindow):
             self.__media_watcher_thread = None
 
     def __media_watcher_stopped(self):
+        logger.info("Watcher stopped")
+        if self.inp_create_playlists.isChecked():
+            self.inp_create_playlists.setChecked(False)
+
+    def __playlist_maker_stopped(self):
         logger.info("Watcher stopped")
         if self.inp_enable_spot_watch.isChecked():
             self.inp_enable_spot_watch.setChecked(False)
@@ -390,8 +474,13 @@ class MainWindow(QMainWindow):
             if progress is not None:
                 percent = int((progress[0] / progress[1]) * 100)
                 if percent >= 100:
-                    downloads_status[media_id]["btn"]['cancel'].hide()
-                    downloads_status[media_id]["btn"]['retry'].hide()
+                    downloads_status[media_id]['btn']['cancel'].hide()
+                    downloads_status[media_id]['btn']['retry'].hide()
+                    downloads_status[media_id]['btn']['locate'].show()
+                    downloaded_data[media_id] = {
+                        'media_path': data[3],
+                        'media_name': data[4]
+                    }
                 downloads_status[media_id]["progress_bar"].setValue(percent)
                 logger.debug(f"Updating progressbar for download item '{media_id}' to '{percent}'%")
         except KeyError:
@@ -406,15 +495,18 @@ class MainWindow(QMainWindow):
         pbar.setValue(0)
         cancel_btn = QPushButton()
         retry_btn = QPushButton()
+        locate_btn = QPushButton()
         retry_btn.setText('Retry')
         cancel_btn.setText('Cancel')
+        locate_btn.setText('Locate')
         retry_btn.hide()
+        locate_btn.hide()
         pbar.setMinimumHeight(30)
         retry_btn.setMinimumHeight(30)
         cancel_btn.setMinimumHeight(30)
         status = QLabel(self.tbl_dl_progress)
         status.setText("Waiting")
-        actions = DownloadActionsButtons(item['item_id'], pbar, cancel_btn, retry_btn)
+        actions = DownloadActionsButtons(item['item_id'], pbar, cancel_btn, retry_btn, locate_btn)
         download_queue.put(
             {
                 'media_type': item['dl_params']['media_type'],
@@ -430,7 +522,8 @@ class MainWindow(QMainWindow):
             "progress_bar": pbar,
             "btn": {
                 "cancel": cancel_btn,
-                "retry": retry_btn
+                "retry": retry_btn,
+                "locate": locate_btn
             }
         }
         logger.info(
@@ -551,6 +644,7 @@ class MainWindow(QMainWindow):
         self.inp_media_format.setText(config.get("media_format"))
         self.inp_track_formatter.setText(config.get("track_name_formatter"))
         self.inp_alb_formatter.setText(config.get("album_name_formatter"))
+        self.inp_playlist_name_formatter.setText(config.get("playlist_name_formatter"))
         self.inp_max_recdl_delay.setValue(config.get("recoverable_fail_wait_delay"))
         self.inp_dl_endskip.setValue(config.get("dl_end_padding_bytes"))
         if config.get("force_raw"):
@@ -581,6 +675,11 @@ class MainWindow(QMainWindow):
             self.inp_only_synced_lyrics.setChecked(True)
         else:
             self.inp_only_synced_lyrics.setChecked(False)
+        if config.get('create_m3u_playlists'):
+            self.inp_create_playlists.setChecked(True)
+        else:
+            self.inp_create_playlists.setChecked(False)
+
         logger.info('Config filled to UI')
 
     def __update_config(self):
@@ -597,6 +696,7 @@ class MainWindow(QMainWindow):
         config.set_('download_root', self.inp_download_root.text())
         config.set_('track_name_formatter', self.inp_track_formatter.text())
         config.set_('album_name_formatter', self.inp_alb_formatter.text())
+        config.set_('playlist_name_formatter', self.inp_playlist_name_formatter.text())
         config.set_('download_delay', self.inp_download_delay.value())
         config.set_('chunk_size', self.inp_chunk_size.value())
         config.set_('recoverable_fail_wait_delay', self.inp_max_recdl_delay.value())
@@ -604,7 +704,7 @@ class MainWindow(QMainWindow):
         config.set_('max_retries', self.inp_max_retries.value())
         config.set_('disable_bulk_dl_notices', self.inp_disable_bulk_popup.isChecked())
         config.set_('playlist_track_force_album_dir', self.inp_force_track_dir.isChecked())
-        if self.inp_max_search_results.value() > 0 and self.inp_max_search_results.value() <= 50:
+        if 0 < self.inp_max_search_results.value() <= 50:
             config.set_('max_search_results', self.inp_max_search_results.value())
         else:
             config.set_('max_search_results', 5)
@@ -629,6 +729,10 @@ class MainWindow(QMainWindow):
             config.set_('only_synced_lyrics', True)
         else:
             config.set_('only_synced_lyrics', False)
+        if self.inp_create_playlists.isChecked():
+            config.set_('create_m3u_playlists', True)
+        else:
+            config.set_('create_m3u_playlists', False)
         config.update()
         logger.info('Config updated !')
 
@@ -839,20 +943,28 @@ class MiniDialog(QDialog):
 
 
 class DownloadActionsButtons(QWidget):
-    def __init__(self, id, pbar, cbtn, rbtn, parent=None):
+    def __init__(self, id, pbar, cbtn, rbtn, lbtn, parent=None):
         super(DownloadActionsButtons, self).__init__(parent)
         self.__id = id
         self.cbtn = cbtn
         self.rbtn = rbtn
+        self.lbtn = lbtn
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         cbtn.clicked.connect(self.cancel_item)
         rbtn.clicked.connect(self.retry_item)
+        lbtn.clicked.connect(self.locate_file)
         layout.addWidget(pbar)
         layout.addWidget(cbtn)
         layout.addWidget(rbtn)
+        layout.addWidget(lbtn)
         self.setLayout(layout)
+
+    def locate_file(self):
+        if self.__id in downloaded_data:
+            if downloaded_data[self.__id].get('media_path', None):
+                show_in_file_manager(os.path.abspath(downloaded_data[self.__id]['media_path']))
 
     def cancel_item(self):
         cancel_list[self.__id] = {}

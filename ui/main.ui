@@ -910,7 +910,7 @@
                 </property>
                 <layout class="QHBoxLayout" name="horizontalLayout_42">
                  <item>
-                  <widget class="QCheckBox" name="imp_create_playlists">
+                  <widget class="QCheckBox" name="inp_create_playlists">
                    <property name="layoutDirection">
                     <enum>Qt::RightToLeft</enum>
                    </property>
