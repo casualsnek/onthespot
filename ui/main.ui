@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>1060</width>
-    <height>841</height>
+    <height>738</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -621,7 +621,7 @@
                     <enum>Qt::RightToLeft</enum>
                    </property>
                    <property name="text">
-                    <string>Disable bulk downoad notice</string>
+                    <string>Disable bulk downoad notice popups</string>
                    </property>
                   </widget>
                  </item>
@@ -763,6 +763,12 @@
                 <layout class="QHBoxLayout" name="horizontalLayout_25">
                  <item>
                   <widget class="QCheckBox" name="inp_force_track_dir">
+                   <property name="maximumSize">
+                    <size>
+                     <width>338</width>
+                     <height>16777215</height>
+                    </size>
+                   </property>
                    <property name="layoutDirection">
                     <enum>Qt::RightToLeft</enum>
                    </property>
@@ -802,6 +808,148 @@
                  </item>
                  <item>
                   <widget class="QLineEdit" name="inp_media_format"/>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="group_lyrics_cfg">
+             <property name="title">
+              <string/>
+             </property>
+             <property name="flat">
+              <bool>true</bool>
+             </property>
+             <layout class="QHBoxLayout" name="horizontalLayout_32">
+              <item>
+               <widget class="QGroupBox" name="group_lyrics_cfg_lyricsenable">
+                <property name="title">
+                 <string/>
+                </property>
+                <property name="flat">
+                 <bool>false</bool>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_33">
+                 <item>
+                  <widget class="QCheckBox" name="inp_enable_lyrics">
+                   <property name="layoutDirection">
+                    <enum>Qt::RightToLeft</enum>
+                   </property>
+                   <property name="text">
+                    <string>Download lyrics from spotify</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_10">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGroupBox" name="group_lyrics_cfg_only_synced">
+                <property name="title">
+                 <string/>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_34">
+                 <item>
+                  <widget class="QCheckBox" name="inp_only_synced_lyrics">
+                   <property name="layoutDirection">
+                    <enum>Qt::RightToLeft</enum>
+                   </property>
+                   <property name="text">
+                    <string>Download synced lyrics only </string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_11">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>241</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="group_playlist_cfg">
+             <property name="title">
+              <string/>
+             </property>
+             <property name="flat">
+              <bool>true</bool>
+             </property>
+             <layout class="QHBoxLayout" name="horizontalLayout_41">
+              <item>
+               <widget class="QGroupBox" name="group_playlist_cfg_m3u">
+                <property name="title">
+                 <string/>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_42">
+                 <item>
+                  <widget class="QCheckBox" name="imp_create_playlists">
+                   <property name="layoutDirection">
+                    <enum>Qt::RightToLeft</enum>
+                   </property>
+                   <property name="text">
+                    <string>Create m3u files for playlist</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="horizontalSpacer_16">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>234</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGroupBox" name="group_playlist_cfg_format">
+                <property name="title">
+                 <string/>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_43">
+                 <item>
+                  <widget class="QLabel" name="lb_playlist_name_formatter">
+                   <property name="text">
+                    <string>Playlist name formatter</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="inp_playlist_name_formatter"/>
                  </item>
                 </layout>
                </widget>

@@ -36,6 +36,8 @@ class Config:
             "ffmpeg_bin_dir": def_ff_path,
             "recoverable_fail_wait_delay": 10,
             "disable_bulk_dl_notices": True,
+            "inp_enable_lyrics": True,
+            "only_synced_lyrics": False,
             "accounts": []
         }
         if os.path.isfile(self.__cfg_path):

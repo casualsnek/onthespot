@@ -35,6 +35,38 @@ def get_artist_albums(session, artist_id):
     return [resp['items'][i]['id'] for i in range(len(resp['items']))]
 
 
+def get_track_lyrics(session, track_id, forced_synced):
+    lyrics = []
+    try:
+        params = 'format=json&market=from_token'
+        access_token = session.tokens().get("user-read-email")
+        headers = {'Authorization': f'Bearer {access_token}'}
+        lyrics_json_req = requests.get(
+            f'https://spclient.wg.spotify.com/lyrics/v1/track/{track_id}',
+            params=params,
+            headers=headers
+        )
+        if lyrics_json_req.status_code == 200:
+            lyrics_json = lyrics_json_req.json()
+            lyrics.append(f'[au:{lyrics_json["provider"]}]')
+            lyrics.append('[by:casualsnek-onTheSpot]')
+            if lyrics_json['kind'].lower() == 'text':
+                # It's un synced lyrics, if not forcing synced lyrics return it
+                if not forced_synced:
+                    lyrics = [ line['words'][0]['string'] for line in lyrics_json['lines'] ]
+            elif lyrics_json['kind'].lower() == 'line':
+                for line in lyrics_json['lines']:
+                    minutes, seconds = divmod(line['time'] / 1000, 60)
+                    lyrics.append(f'[{minutes:0>2.0f}:{seconds:05.2f}] {line["words"][0]["string"]}')
+        else:
+            logger.warning(f'Failed to get lyrics for track id: {track_id}, '
+                         f'statucode: {lyrics_json_req.status_code}, Text: {lyrics_json_req.text}')
+    except (KeyError, IndexError):
+        logger.error(f'Failed to get lyrics for track id: {track_id}, '
+                     f'statucode: {lyrics_json_req.status_code}, Text: {lyrics_json_req.text}')
+    return None if len(lyrics) <=2 else '\n'.join(lyrics)
+
+
 def get_tracks_from_playlist(session, playlist_id):
     logger.info(f"Get tracks from playlist by id '{playlist_id}'")
     songs = []
@@ -344,6 +376,19 @@ class DownloadWorker(QObject):
                         self.progress.emit([trk_track_id_str, None, [100, 100]])
                         self.progress.emit([trk_track_id_str, "Downloaded", None])
                         logger.info(f"Downloaded track by id '{trk_track_id_str}'")
+                        if config.get('inp_enable_lyrics'):
+                            logger.info(f'Fetching lyrics for track id: {trk_track_id_str}, '
+                                        f'{config.get("only_synced_lyrics")}')
+                            try:
+                                lyrics = get_track_lyrics(session, trk_track_id_str, config.get('only_synced_lyrics'))
+                                if lyrics:
+                                    logger.info(f'Found lyrics for: {trk_track_id_str}, writing...')
+                                    with open(filename[0:-len(config.get('media_format'))]+'lrc', 'w') as f:
+                                        f.write(lyrics)
+                                    logger.info(f'lyrics saved for: {trk_track_id_str}')
+                            except:
+                                logger.error(f'Could not get lyrics for {trk_track_id_str}, '
+                                             f'unexpected error: {traceback.format_exc()}')
                         return True
                     else:
                         logger.info(f"Downloaded track by id '{trk_track_id_str}', in raw mode")

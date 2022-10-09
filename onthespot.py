@@ -103,7 +103,8 @@ class ParsingQueueProcessor(QObject):
         logger.info('Parsing queue processor is active !')
         while not self.stop:
             item = self.queue.get()
-            session = session_pool[config.get("parsing_acc_sn") - 1]
+            parsing_index = item.get('override_parsing_acc_sn', config.get("parsing_acc_sn") - 1)
+            session = session_pool[parsing_index]
             logger.debug(f'Got data to parse: {str(item)}')
 
             if item['media_type'] == 'album':
@@ -253,6 +254,7 @@ class MainWindow(QMainWindow):
         self.btn_search.clicked.connect(self.__get_search_results)
         self.btn_url_download.clicked.connect(lambda x: self.__download_by_url(self.inp_dl_url.text()))
         self.inp_enable_spot_watch.stateChanged.connect(self.__media_watcher_set)
+        
 
         self.btn_search_download_all.clicked.connect(lambda x, cat="all": self.__mass_action_dl(cat))
         self.btn_search_download_tracks.clicked.connect(lambda x, cat="tracks": self.__mass_action_dl(cat))
@@ -571,6 +573,14 @@ class MainWindow(QMainWindow):
             self.inp_force_track_dir.setChecked(True)
         else:
             self.inp_force_track_dir.setChecked(False)
+        if config.get("inp_enable_lyrics"):
+            self.inp_enable_lyrics.setChecked(True)
+        else:
+            self.inp_enable_lyrics.setChecked(False)
+        if config.get("only_synced_lyrics"):
+            self.inp_only_synced_lyrics.setChecked(True)
+        else:
+            self.inp_only_synced_lyrics.setChecked(False)
         logger.info('Config filled to UI')
 
     def __update_config(self):
@@ -611,6 +621,14 @@ class MainWindow(QMainWindow):
             config.set_('watch_bg_for_spotify', True)
         else:
             config.set_('watch_bg_for_spotify', False)
+        if self.inp_enable_lyrics.isChecked():
+            config.set_('inp_enable_lyrics', True)
+        else:
+            config.set_('inp_enable_lyrics', False)
+        if self.inp_only_synced_lyrics.isChecked():
+            config.set_('only_synced_lyrics', True)
+        else:
+            config.set_('only_synced_lyrics', False)
         config.update()
         logger.info('Config updated !')
 
