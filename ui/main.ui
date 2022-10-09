@@ -349,7 +349,7 @@
                  <item>
                   <widget class="QPushButton" name="btn_toggle_advanced">
                    <property name="text">
-                    <string>Show/Hide Advanced configuration</string>
+                    <string>Show/Hide Advanced options</string>
                    </property>
                   </widget>
                  </item>
@@ -927,6 +927,128 @@
          </widget>
         </item>
         <item>
+         <widget class="QGroupBox" name="group_search_items">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="title">
+           <string/>
+          </property>
+          <property name="flat">
+           <bool>true</bool>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_29">
+           <item>
+            <spacer name="horizontalSpacer_8">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Fixed</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>10</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_3">
+             <property name="text">
+              <string>Search for: </string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="inp_enable_search_playlists">
+             <property name="text">
+              <string>Playlist</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="inp_enable_search_albums">
+             <property name="text">
+              <string>Albums</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="inp_enable_search_tracks">
+             <property name="text">
+              <string>Tracks</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="inp_enable_search_artists">
+             <property name="text">
+              <string>Artists</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_7">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="group_temp_dl_root">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="title">
+           <string/>
+          </property>
+          <property name="flat">
+           <bool>true</bool>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_28">
+           <item>
+            <widget class="QLabel" name="lb_tmp_dl_root">
+             <property name="text">
+              <string>Temporary download root path :</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="inp_tmp_dl_root"/>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
          <widget class="QGroupBox" name="group_search_results">
           <property name="title">
            <string>Search Results</string>
@@ -1111,21 +1233,21 @@
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_27">
            <item>
-            <widget class="QPushButton" name="pushButton_3">
+            <widget class="QPushButton" name="btn_progress_clear_complete">
              <property name="text">
               <string>Clear completed items</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButton">
+            <widget class="QPushButton" name="btn_progress_cancel_all">
              <property name="text">
               <string>Cancel All</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="pushButton_2">
+            <widget class="QPushButton" name="btn_progress_retry_all">
              <property name="text">
               <string>Retry all failed</string>
              </property>

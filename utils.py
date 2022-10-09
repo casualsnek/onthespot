@@ -1,75 +1,65 @@
 import os, platform
 from librespot.core import Session
-import time
-import re, json
+import re
 from runtimedata import get_logger
-import traceback
 from spotutils import search_by_term
 import subprocess
 import asyncio
 
-
 if platform.system() == "Windows":
     from winsdk.windows.media.control import \
-    GlobalSystemMediaTransportControlsSessionManager as MediaManager
+        GlobalSystemMediaTransportControlsSessionManager as MediaManager
 
 logger = get_logger("utils")
 
 
-def login_user(username: str, password: str, login_data_dir: str)->list:
+def login_user(username: str, password: str, login_data_dir: str) -> list:
     logger.info(f"logging in user '{username[:4]}****@****.***'")
-    # Check the username and if pickled sessionfile exists load the session and append
-    # Returns: [Success: Bool, Session: Session, PicklePath: str, premium: Bool]
-    sessobj_pikpath = os.path.join(login_data_dir, username+"_GUZpotifylogin.json")
-    os.makedirs(os.path.dirname(sessobj_pikpath), exist_ok=True)
-    if os.path.isfile(sessobj_pikpath):
+    # Check the username and if pickled session file exists load the session and append
+    # Returns: [Success: Bool, Session: Session, SessionJsonFile: str, premium: Bool]
+    session_json_path = os.path.join(login_data_dir, username + "_GUZpotifylogin.json")
+    os.makedirs(os.path.dirname(session_json_path), exist_ok=True)
+    if os.path.isfile(session_json_path):
         logger.info(f"Session file exists for user, attempting to use it '{username[:4]}****@****.***'")
         logger.debug("Restoring user session")
         # Session exists try loading it
         try:
-            config = Session.Configuration.Builder().set_stored_credential_file(sessobj_pikpath).build()
+            config = Session.Configuration.Builder().set_stored_credential_file(session_json_path).build()
             logger.debug("Session config created")
             # For some reason initialising session as None prevents premature application exit
             session = None
-            session = Session.Builder(conf=config).stored_file(sessobj_pikpath).create()
+            session = Session.Builder(conf=config).stored_file(session_json_path).create()
             logger.debug("Session created")
             premium = True if session.get_user_attribute("type") == "premium" else False
             logger.info(f"Login successful for user '{username[:4]}****@****.***'")
-            return [True, session, sessobj_pikpath, premium]
+            return [True, session, session_json_path, premium]
         except (RuntimeError, Session.SpotifyAuthenticationException):
             logger.error(f"Failed logging in user '{username[:4]}****@****.***', invalid credentials")
-            return [False, None, "", False]
         except Exception:
-            logger.error(f"Failed to login user '{username[:4]}****@****.***' due to unexpected error: {traceback.format_exc()}")
+            logger.error(f"Failed logging in user '{username[:4]}****@****.***', unexpected error !")
             return [False, None, "", False]
     else:
         logger.info(f"Session file does not exist user '{username[:4]}****@****.***', attempting login with uname/pass")
         try:
             logger.info(f"logging in user '{username[:4]}****@****.***'")
-            config = Session.Configuration.Builder().set_stored_credential_file(sessobj_pikpath).build()
-            print("logging in !")
+            config = Session.Configuration.Builder().set_stored_credential_file(session_json_path).build()
             session = Session.Builder(conf=config).user_pass(username, password).create()
             premium = True if session.get_user_attribute("type") == "premium" else False
             logger.info(f"Login successful for user '{username[:4]}****@****.***'")
-            return [True, session, sessobj_pikpath, premium]
+            return [True, session, session_json_path, premium]
         except (RuntimeError, Session.SpotifyAuthenticationException):
-            logger.error(f"Failed logging in user '{username[:4]}****@****.***', invalid credentials")
+            logger.error(f"Failed logging in user '{username[:4]}****@****.***', unexpected error !")
             return [False, None, "", False]
-        except Exception:
-            return [False, None, "", False]
-            logger.error(f"Failed to login user '{username[:4]}****@****.***' due to unexpected error: {traceback.format_exc()}")
-    return [False, None, "", False]
 
-def remove_user(username: str, login_data_dir: str, config)->bool:
+
+def remove_user(username: str, login_data_dir: str, config) -> bool:
     logger.info(f"Removing user '{username[:4]}****@****.***' from saved entries")
-    sessobj_pikpath = os.path.join(login_data_dir, username+"_GUZpotifylogin.json")
-    if os.path.isfile(sessobj_pikpath):
-        os.remove(sessobj_pikpath)
+    session_json_path = os.path.join(login_data_dir, username + "_GUZpotifylogin.json")
+    if os.path.isfile(session_json_path):
+        os.remove(session_json_path)
     removed = False
     accounts_copy = config.get("accounts").copy()
-    print("AC CP", accounts_copy)
     accounts = config.get("accounts")
-    print("AC", accounts_copy)
     for i in range(0, len(accounts)):
         if accounts[i][0] == username:
             accounts_copy.pop(i)
@@ -85,45 +75,52 @@ def remove_user(username: str, login_data_dir: str, config)->bool:
 def regex_input_for_urls(search_input):
     logger.info(f"Parsing url '{search_input}'")
     track_uri_search = re.search(
-        r"^spotify:track:(?P<TrackID>[0-9a-zA-Z]{22})$", search_input)
+        r"^spotify:track:(?P<TrackID>[0-9a-zA-Z]{22})$",
+        search_input
+    )
     track_url_search = re.search(
         r"^(https?://)?open\.spotify\.com/track/(?P<TrackID>[0-9a-zA-Z]{22})(\?si=.+?)?$",
-        search_input,
+        search_input
     )
-
     album_uri_search = re.search(
-        r"^spotify:album:(?P<AlbumID>[0-9a-zA-Z]{22})$", search_input)
+        r"^spotify:album:(?P<AlbumID>[0-9a-zA-Z]{22})$",
+        search_input
+    )
     album_url_search = re.search(
         r"^(https?://)?open\.spotify\.com/album/(?P<AlbumID>[0-9a-zA-Z]{22})(\?si=.+?)?$",
-        search_input,
+        search_input
     )
-
     playlist_uri_search = re.search(
-        r"^spotify:playlist:(?P<PlaylistID>[0-9a-zA-Z]{22})$", search_input)
+        r"^spotify:playlist:(?P<PlaylistID>[0-9a-zA-Z]{22})$",
+        search_input
+    )
     playlist_url_search = re.search(
         r"^(https?://)?open\.spotify\.com/playlist/(?P<PlaylistID>[0-9a-zA-Z]{22})(\?si=.+?)?$",
-        search_input,
+        search_input
     )
-
     episode_uri_search = re.search(
-        r"^spotify:episode:(?P<EpisodeID>[0-9a-zA-Z]{22})$", search_input)
+        r"^spotify:episode:(?P<EpisodeID>[0-9a-zA-Z]{22})$",
+        search_input
+    )
     episode_url_search = re.search(
         r"^(https?://)?open\.spotify\.com/episode/(?P<EpisodeID>[0-9a-zA-Z]{22})(\?si=.+?)?$",
-        search_input,
+        search_input
     )
-
     show_uri_search = re.search(
-        r"^spotify:show:(?P<ShowID>[0-9a-zA-Z]{22})$", search_input)
+        r"^spotify:show:(?P<ShowID>[0-9a-zA-Z]{22})$",
+        search_input
+    )
     show_url_search = re.search(
         r"^(https?://)?open\.spotify\.com/show/(?P<ShowID>[0-9a-zA-Z]{22})(\?si=.+?)?$",
         search_input,
     )
-
     artist_uri_search = re.search(
-        r"^spotify:artist:(?P<ArtistID>[0-9a-zA-Z]{22})$", search_input)
+        r"^spotify:artist:(?P<ArtistID>[0-9a-zA-Z]{22})$",
+        search_input
+    )
     artist_url_search = re.search(
         r"^(https?://)?open\.spotify\.com/artist/(?P<ArtistID>[0-9a-zA-Z]{22})(\?si=.+?)?$",
-        search_input,
+        search_input
     )
 
     if track_uri_search is not None or track_url_search is not None:
@@ -169,6 +166,7 @@ def regex_input_for_urls(search_input):
         artist_id_str = None
     return track_id_str, album_id_str, playlist_id_str, episode_id_str, show_id_str, artist_id_str
 
+
 def get_url_data(url):
     track_id_str, album_id_str, playlist_id_str, episode_id_str, show_id_str, artist_id_str = regex_input_for_urls(url)
     if track_id_str is not None:
@@ -193,11 +191,32 @@ def get_url_data(url):
         logger.error(f"Parse result for url '{url}' failed, invalid spotify url !")
         return None, None
 
+
+def name_by_from_sdata(d_key, item):
+    item_name = item_by = None
+    if d_key == "tracks":
+        item_name = f"{'[ 18+ ]' if item['explicit'] else '       '} {item['name']}"
+        item_by = f"{','.join([artist['name'] for artist in item['artists']])}"
+    elif d_key == "albums":
+        rel_year = re.search(r'(\d{4})', item['release_date']).group(1)
+        item_name = f"[Y:{rel_year}] [T:{item['total_tracks']}] {item['name']}"
+        item_by = f"{','.join([artist['name'] for artist in item['artists']])}"
+    elif d_key == "playlists":
+        item_name = f"{item['name']}"
+        item_by = f"{item['owner']['display_name']}"
+    elif d_key == "artists":
+        item_name = item['name']
+        if f"{'/'.join(item['genres'])}" != "":
+            item_name = item['name'] + f"  |  GENERES: {'/'.join(item['genres'])}"
+        item_by = f"{item['name']}"
+    return item_name, item_by
+
+
 def get_now_playing_local(session):
     if platform.system() == "Linux":
         logger.debug("Linux detected ! Use playerctl to get current track information..")
-        playctl_out = subprocess.check_output(["playerctl", "-p", "spotify", "metadata"])
-        found = re.search(r"((spotify xesam:url).*https:\/\/open.spotify.*\n)", playctl_out.decode())
+        playerctl_out = subprocess.check_output(["playerctl", "-p", "spotify", "metadata"])
+        found = re.search(r"((spotify xesam:url).*https:\/\/open.spotify.*\n)", playerctl_out.decode())
         if found:
             spotify_url = found.group(1).replace("spotify xesam:url", "").strip()
             return spotify_url
@@ -214,7 +233,8 @@ def get_now_playing_local(session):
             if current_session.source_app_user_model_id == "Spotify.exe":
                 logger.debug("Spotify running..")
                 info = loop.run_until_complete(current_session.try_get_media_properties_async())
-                info_dict = {song_attr: info.__getattribute__(song_attr) for song_attr in dir(info) if song_attr[0] != '_'}
+                info_dict = {song_attr: info.__getattribute__(song_attr) for song_attr in dir(info) if
+                             song_attr[0] != '_'}
                 info_dict['genres'] = list(info_dict['genres'])
         if info_dict:
             query_str = f"{info_dict['title']} {info_dict['artist']} {info_dict['album_title']}".strip()
@@ -222,7 +242,7 @@ def get_now_playing_local(session):
             results = search_by_term(session, query_str, max_results=1, content_types=["track"])
             if len(results["tracks"]) > 0:
                 try:
-                    link =  results["tracks"][0]["external_urls"]["spotify"]
+                    link = results["tracks"][0]["external_urls"]["spotify"]
                     logger.debug(f"Spotify now playing {link}")
                     return link
                 except (KeyError, IndexError):

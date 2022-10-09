@@ -3,10 +3,12 @@ import json
 import platform
 from shutil import which
 
+
 class Config:
     def __init__(self, cfg_path=None):
         if cfg_path is None:
-            cfg_path = config_file_path = os.path.join(os.path.expanduser("~"), ".config", "casualOnTheSpot", "config.json")
+            cfg_path = config_file_path = os.path.join(os.path.expanduser("~"), ".config", "casualOnTheSpot",
+                                                       "config.json")
         self.__cfg_path = cfg_path
         self.platform = platform.system()
         def_ff_path = which("ffmpeg")
@@ -21,7 +23,7 @@ class Config:
             "log_file": os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "logs", "onthespot.log"),
             "download_delay": 5,
             "track_name_formatter": "{artist} - {album} - {name}",
-            "album_name_formatter": "{artist}/[{rel_year}] {album}",
+            "album_name_formatter": "{artist}"+os.path.sep+"[{rel_year}] {album}",
             "playlist_track_force_album_dir": 1,
             "watch_bg_for_spotify": 0,
             "dl_end_padding_bytes": 167,
@@ -34,7 +36,7 @@ class Config:
             "ffmpeg_bin_dir": def_ff_path,
             "recoverable_fail_wait_delay": 10,
             "disable_bulk_dl_notices": True,
-            "accounts": [  ]
+            "accounts": []
         }
         if os.path.isfile(self.__cfg_path):
             self.__config = json.load(open(cfg_path, "r"))
@@ -67,5 +69,6 @@ class Config:
         os.makedirs(os.path.dirname(self.__cfg_path), exist_ok=True)
         with open(self.__cfg_path, "w") as cf:
             cf.write(json.dumps(self.__config))
+
 
 config = Config()
