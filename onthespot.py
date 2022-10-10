@@ -902,8 +902,9 @@ class MainWindow(QMainWindow):
             try:
                 logger.info(f"Checking download status for media id: {id}, "
                             f"{downloads_status[id]['progress_bar'].value()}")
-                if downloads_status[id]['progress_bar'].value() == 100:
-                    logger.info(f'ID: {id} is complete')
+                if downloads_status[id]['progress_bar'].value() == 100 or \
+                        downloads_status[id]['status_label'].text().lower() == 'cancelled':
+                    logger.info(f'ID: {id} is complete or cancelled')
                     complete_ids.append(id)
                 rows = self.tbl_dl_progress.rowCount()
                 for i in range(rows):

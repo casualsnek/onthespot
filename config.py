@@ -1,20 +1,24 @@
 import os
 import json
 import platform
-import shutil
+import sys
 from shutil import which
+
+
+def data_path(relative_path):
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 
 
 class Config:
     def __init__(self, cfg_path=None):
         if cfg_path is None:
-            cfg_path = config_file_path = os.path.join(os.path.expanduser("~"), ".config", "casualOnTheSpot",
-                                                       "config.json")
+            cfg_path = os.path.join(os.path.expanduser("~"), ".config", "casualOnTheSpot", "config.json")
         self.__cfg_path = cfg_path
         self.platform = platform.system()
         def_ff_path = which("ffmpeg")
         if def_ff_path is None:
-            def_ff_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "bin", "ffmpeg"))
+            def_ff_path = data_path(os.path.join("bin", "ffmpeg"))
         else:
             def_ff_path = os.path.dirname(def_ff_path)
         self.__template_data = {
@@ -25,8 +29,8 @@ class Config:
             "log_file": os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "logs", "onthespot.log"),
             "download_delay": 5,
             "track_name_formatter": "{artist} - {album} - {name}",
-            "album_name_formatter": "{artist}"+os.path.sep+"[{rel_year}] {album}",
-            "playlist_name_formatter": "MyPlaylists"+os.path.sep+"{name} by {owner}",
+            "album_name_formatter": "{artist}" + os.path.sep + "[{rel_year}] {album}",
+            "playlist_name_formatter": "MyPlaylists" + os.path.sep + "{name} by {owner}",
             "playlist_track_force_album_dir": 1,
             "watch_bg_for_spotify": 0,
             "dl_end_padding_bytes": 167,

@@ -1411,7 +1411,7 @@
            <item>
             <widget class="QPushButton" name="btn_progress_clear_complete">
              <property name="text">
-              <string>Clear completed items</string>
+              <string>Clear completed/cancelled items</string>
              </property>
             </widget>
            </item>
