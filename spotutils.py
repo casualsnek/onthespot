@@ -282,13 +282,18 @@ class DownloadWorker(QObject):
     __stop = True
 
     def download_track(self, session, track_id_str, extra_paths="", force_album_format=False, extra_path_as_root=False):
+        trk_track_id_str = track_id_str
         logger.debug(
             f"Downloading track by id '{track_id_str}', extra_paths: '{extra_paths}', "
             f"extra_path_as_root: '{extra_path_as_root}' ")
+        if trk_track_id_str in cancel_list:
+            self.progress.emit([trk_track_id_str, "Cancelled", [0, 100]])
+            cancel_list.pop(trk_track_id_str)
+            failed_downloads[trk_track_id_str] = {}
+            return False
         skip_existing_file = True
         chunk_size = config.get("chunk_size")
         quality = AudioQuality.HIGH
-        trk_track_id_str = track_id_str
         if check_premium(session) or config.get('force_premium'):
             quality = AudioQuality.VERY_HIGH
         try:
@@ -518,7 +523,8 @@ class DownloadWorker(QObject):
                                          f' {config.get("max_retries")}')
                             failed_downloads[item['media_id']] = item
                             break
-                        if item['media_id'] in failed_downloads:
+                        elif item['media_id'] in failed_downloads:
+                            logger.info('Media id: {item["media_id"]}, was probably cancelled by user')
                             failed_downloads[item['media_id']] = item
                             last_cancelled = True
                             break
@@ -526,8 +532,6 @@ class DownloadWorker(QObject):
                         break
                 if not last_cancelled:
                     time.sleep(config.get("download_delay"))
-                else:
-                    last_cancelled = False
 
             elif item['media_type'] == "episode":
                 while attempt < config.get("max_retries"):
