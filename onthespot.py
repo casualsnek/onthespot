@@ -70,6 +70,8 @@ class MediaWatcher(QObject):
             except FileNotFoundError:
                 logger.error('Background monitor failed ! Playerctl not installed')
                 break
+            except IndexError:
+                logger.warning("Sessions not available yet !")
         self.finished.emit()
 
     def stop(self):
@@ -242,9 +244,9 @@ class ParsingQueueProcessor(QObject):
                 if not item['data'].get('hide_dialogs', False):
                     self.progress.emit(f"Added episode '{episode_name}' of {podcast_name} to download queue!")
             elif item['media_type'] == "playlist":
-                item_name = item['data'].get('media_title', '')
                 enable_m3u = config.get('create_m3u_playlists', False)
                 name, owner, description, url = get_playlist_data(session, item["media_id"])
+                item_name = item['data'].get('media_title', name)
                 if not item['data'].get('hide_dialogs', False):
                     self.progress.emit(
                         f"Tracks in playlist '{item_name}' by {owner['display_name']} is being parsed and "
@@ -630,8 +632,7 @@ class MainWindow(QMainWindow):
                     item[1].start()
                     thread_pool.append(item)
             else:
-                # Signal and wait for threads to terminate and clear pool and call self
-
+                # Signal and wait for threads to terminate and clear pool and call sel
                 pass
         else:
             # Display notice that no session is available and threads are not built
