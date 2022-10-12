@@ -32,6 +32,9 @@
    </item>
    <item>
     <widget class="QPushButton" name="btn_close">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
      <property name="text">
       <string>OK</string>
      </property>

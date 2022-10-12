@@ -1,17 +1,18 @@
-import os, platform
+import os
+import platform
 from librespot.core import Session
 import re
 from runtimedata import get_logger
-from spotutils import search_by_term
+from utils.spotify import search_by_term
 import subprocess
 import asyncio
 
 if platform.system() == "Windows":
-    from winsdk.windows.media.control import \
-        GlobalSystemMediaTransportControlsSessionManager as MediaManager
+    from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
 
 logger = get_logger("utils")
 media_tracker_last_query = ''
+
 
 def login_user(username: str, password: str, login_data_dir: str) -> list:
     logger.info(f"logging in user '{username[:4]}****@****.***'")
@@ -192,33 +193,13 @@ def get_url_data(url):
         return None, None
 
 
-def name_by_from_sdata(d_key, item):
-    item_name = item_by = None
-    if d_key == "tracks":
-        item_name = f"{'[ 18+ ]' if item['explicit'] else '       '} {item['name']}"
-        item_by = f"{','.join([artist['name'] for artist in item['artists']])}"
-    elif d_key == "albums":
-        rel_year = re.search(r'(\d{4})', item['release_date']).group(1)
-        item_name = f"[Y:{rel_year}] [T:{item['total_tracks']}] {item['name']}"
-        item_by = f"{','.join([artist['name'] for artist in item['artists']])}"
-    elif d_key == "playlists":
-        item_name = f"{item['name']}"
-        item_by = f"{item['owner']['display_name']}"
-    elif d_key == "artists":
-        item_name = item['name']
-        if f"{'/'.join(item['genres'])}" != "":
-            item_name = item['name'] + f"  |  GENERES: {'/'.join(item['genres'])}"
-        item_by = f"{item['name']}"
-    return item_name, item_by
-
-
 def get_now_playing_local(session):
     global media_tracker_last_query
     if platform.system() == "Linux":
         logger.debug("Linux detected ! Use playerctl to get current track information..")
         try:
             playerctl_out = subprocess.check_output(["playerctl", "-p", "spotify", "metadata"])
-        except (subprocess.CalledProcessError):
+        except subprocess.CalledProcessError:
             logger.debug("Spotify not running..")
             return ""
         found = re.search(r"((spotify xesam:url).*https:\/\/open.spotify.*\n)", playerctl_out.decode())
@@ -263,3 +244,42 @@ def get_now_playing_local(session):
     else:
         logger.debug("Unsupported platform for auto download !")
         return ""
+
+
+def name_by_from_sdata(d_key: str, item: dict):
+    item_name = item_by = None
+    if d_key == "tracks":
+        item_name = f"{'[ 18+ ]' if item['explicit'] else '       '} {item['name']}"
+        item_by = f"{','.join([artist['name'] for artist in item['artists']])}"
+    elif d_key == "albums":
+        rel_year = re.search(r'(\d{4})', item['release_date']).group(1)
+        item_name = f"[Y:{rel_year}] [T:{item['total_tracks']}] {item['name']}"
+        item_by = f"{','.join([artist['name'] for artist in item['artists']])}"
+    elif d_key == "playlists":
+        item_name = f"{item['name']}"
+        item_by = f"{item['owner']['display_name']}"
+    elif d_key == "artists":
+        item_name = item['name']
+        if f"{'/'.join(item['genres'])}" != "":
+            item_name = item['name'] + f"  |  GENERES: {'/'.join(item['genres'])}"
+        item_by = f"{item['name']}"
+    return item_name, item_by
+
+
+def qt_obj_to_thread(thread, obj, start=[], finish=[], progress=[], enqueue=[], begin=True):
+    obj.moveToThread(thread)
+    thread.started.connect(obj.run)
+    for func in start:
+        thread.started.connect(func)
+    obj.finished.connect(thread.quit)
+    obj.finished.connect(obj.deleteLater)
+    for func in finish:
+        obj.finished.connect(func)
+    thread.finished.connect(thread.deleteLater)
+    for func in progress:
+        obj.progress.connect(func)
+    for func in progress:
+        obj.enqueue.connect(func)
+    if begin:
+        thread.start()
+    pass

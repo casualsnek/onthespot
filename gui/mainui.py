@@ -1,342 +1,100 @@
+import os
 import queue
 import time
-import sys
-import os
 from PyQt5 import uic
-from config import config
-from exceptions import *
-from PyQt5.QtCore import QObject, QThread, pyqtSignal
-from runtimedata import thread_pool, session_pool, download_queue, get_logger, cancel_list, failed_downloads, \
-    downloads_status, playlist_m3u_queue, downloaded_data
-from utils import login_user, remove_user, get_url_data, get_now_playing_local, name_by_from_sdata
-from PyQt5.QtWidgets import QMainWindow, QHeaderView, QFileDialog, QPushButton, QTableWidgetItem, \
-    QApplication, QDialog, QProgressBar, QLabel, QHBoxLayout, QWidget
-from spotutils import search_by_term, get_album_name, get_album_tracks, get_artist_albums, DownloadWorker, \
-    get_show_episodes, get_tracks_from_playlist, get_song_info, get_episode_info, get_playlist_data
-from showinfm import show_in_file_manager
+from PyQt5.QtCore import QThread
+from PyQt5.QtWidgets import QMainWindow, QHeaderView, QLabel, QPushButton, QProgressBar, QTableWidgetItem, QFileDialog
 
-logger = get_logger("onethespot")
+from exceptions import EmptySearchResultException
+from utils.spotify import search_by_term
+from utils.utils import name_by_from_sdata, login_user, remove_user, get_url_data
+from worker import LoadSessions, ParsingQueueProcessor, MediaWatcher, PlayListMaker, DownloadWorker
+from .dl_progressbtn import DownloadActionsButtons
+from .minidialog import MiniDialog
+from otsconfig import config
+from runtimedata import get_logger, download_queue, downloads_status, downloaded_data, failed_downloads, cancel_list, \
+    session_pool, thread_pool
 
-
-class LoadSessions(QObject):
-    finished = pyqtSignal()
-    progress = pyqtSignal(str)
-    users = None
-
-    def run(self):
-        logger.info('Session loader has started !')
-        accounts = config.get('accounts')
-        t = len(accounts)
-        c = 0
-        for account in accounts:
-            c = c + 1
-            logger.info(f'Trying to create session for {account[0][:4]}')
-            self.progress.emit(f'Attempting to create session for:\n{account[0]}  [{c}/{t}] ')
-            time.sleep(0.2)
-            login = login_user(account[0], "",
-                               os.path.join(os.path.expanduser('~'), '.cache', 'casualOnTheSpot', 'sessions'))
-            if login[0]:
-                # Login was successful, add to session pool
-                self.progress.emit(f'Session created for:\n{account[0]}  [{c}/{t}] ')
-                time.sleep(0.2)
-                session_pool.append(login[1])
-                self.__users.append([account[0], 'Premium' if login[3] else 'Free', 'OK'])
-            else:
-                self.progress.emit(f'Failed to create session for:\n{account[0]}  [{c}/{t}] ')
-                self.__users.append([account[0], "LoginERROR", "ERROR"])
-        self.finished.emit()
-
-    def setup(self, users):
-        self.__users = users
+logger = get_logger('gui.main_ui')
 
 
-class MediaWatcher(QObject):
-    changed_media = pyqtSignal(str, bool)
-    finished = pyqtSignal()
-    last_url = ''
-    __stop = False
-
-    def run(self):
-        logger.info('Media watcher thread is running....')
-        while not self.__stop:
-            try:
-                spotify_url = get_now_playing_local(session_pool[config.get("parsing_acc_sn") - 1])
-                spotify_url = spotify_url.strip() if spotify_url is not None else ""
-                if spotify_url != '' and spotify_url != self.last_url:
-                    logger.info(f'Desktop application media changed to: {spotify_url}')
-                    self.last_url = spotify_url
-                    self.changed_media.emit(spotify_url, True)
-                time.sleep(3)
-            except FileNotFoundError:
-                logger.error('Background monitor failed ! Playerctl not installed')
-                break
-            except IndexError:
-                logger.warning("Sessions not available yet !")
-        self.finished.emit()
-
-    def stop(self):
-        self.__stop = True
-
-
-class PlayListMaker(QObject):
-    changed_media = pyqtSignal(str, bool)
-    finished = pyqtSignal()
-    __stop = False
-
-    def run(self):
-        logger.info('Playlist m3u8 builder is running....')
-        while not self.__stop:
-            play_queue = playlist_m3u_queue.copy()
-            ddc = downloaded_data.copy()
-            print(ddc, play_queue)
-            for play_id in play_queue:
-                logger.info(f'Playlist m3u8 checking ID {play_id}')
-                if set(play_queue[play_id]['tracks']).intersection(set(ddc.keys())) == set(
-                        play_queue[play_id]['tracks']):
-                    logger.info(f'Playlist {play_id} has all items ready, making m3u8 playlist at: '
-                                f'{{play_queue[play_id]["filename"]}}!')
-                    # Write the m3u8 header
-                    os.makedirs(os.path.dirname(play_queue[play_id]['filename']), exist_ok=True)
-                    with open(play_queue[play_id]['filename'], 'w') as f:
-                        f.write('#EXTM3U\n')
-                    tid = 1
-                    for track_id in play_queue[play_id]['tracks']:
-                        logger.info(f'Playlist: {play_id}, adding track: {track_id} to m3u8')
-                        with open(play_queue[play_id]['filename'], 'a') as f:
-                            f.write(
-                                f'#EXTINF:{tid}, {downloaded_data[track_id]["media_name"]}\n'
-                                f'{downloaded_data[track_id]["media_path"]}\n'
-                            )
-                        tid = tid + 1
-                    logger.info(f'Playlist: {play_id} created, removing fro queue list')
-                    playlist_m3u_queue.pop(play_id)
-                else:
-                    logger.info(f"Playlist {play_id} has some items left to download")
-            time.sleep(4)
-        self.finished.emit()
-
-    def stop(self):
-        self.__stop = True
-
-
-class ParsingQueueProcessor(QObject):
-    finished = pyqtSignal()
-    progress = pyqtSignal(str)
-    enqueue = pyqtSignal(dict)
-
-    def enqueue_tracks(self, track_list, enqueue_part_cfg, log_id='', itemtype=''):
-        for track in track_list:
-            logger.info(f'PQP parsing {log_id} <-> track item: {track["name"]}:{track["id"]}')
-            exp = '[ 18+ ]' if track['explicit'] else ''
-            self.enqueue.emit(
-                {
-                    'item_id': track['id'],
-                    'item_title': f'{exp} {track["name"]}',
-                    'item_by_text': f"{','.join([artist['name'] for artist in track['artists']])}",
-                    'item_type_text': itemtype,
-                    'dl_params': {
-                        'media_type': 'track',
-                        'extra_paths': enqueue_part_cfg.get('extra_paths', ''),
-                        'extra_path_as_root': bool(enqueue_part_cfg.get('dl_path_override', False)),
-                    }
+def dl_progress_update(data):
+    media_id = data[0]
+    status = data[1]
+    progress = data[2]
+    try:
+        if status is not None:
+            if 'failed' == status.lower() or 'cancelled' == status.lower():
+                downloads_status[media_id]["btn"]['cancel'].hide()
+                downloads_status[media_id]["btn"]['retry'].show()
+            if 'downloading' == status.lower():
+                downloads_status[media_id]["btn"]['cancel'].show()
+                downloads_status[media_id]["btn"]['retry'].hide()
+            downloads_status[media_id]["status_label"].setText(status)
+            logger.debug(f"Updating status text for download item '{media_id}' to '{status}'")
+        if progress is not None:
+            percent = int((progress[0] / progress[1]) * 100)
+            if percent >= 100:
+                downloads_status[media_id]['btn']['cancel'].hide()
+                downloads_status[media_id]['btn']['retry'].hide()
+                downloads_status[media_id]['btn']['locate'].show()
+                downloaded_data[media_id] = {
+                    'media_path': data[3],
+                    'media_name': data[4]
                 }
-            )
+            downloads_status[media_id]["progress_bar"].setValue(percent)
+            logger.debug(f"Updating progressbar for download item '{media_id}' to '{percent}'%")
+    except KeyError:
+        logger.error(f"Why TF we get here ?, Got progressbar update for media_id '{media_id}' "
+                     f"which does not seem to exist !!! -> Valid Status items: "
+                     f"{str([_media_id for _media_id in downloads_status])} "
+                     )
 
-    def run(self):
-        logger.info('Parsing queue processor is active !')
-        while not self.stop:
-            item = self.queue.get()
-            parsing_index = item.get('override_parsing_acc_sn', config.get("parsing_acc_sn") - 1)
-            session = session_pool[parsing_index]
-            logger.debug(f'Got data to parse: {str(item)}')
 
-            if item['media_type'] == 'album':
-                artist, album_release_date, album_name, total_tracks = get_album_name(session, item['media_id'])
-                item_name = item['data'].get('media_title', album_name)
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(
-                        f'Tracks in album "{item_name}" is being parsed and will be added to download queue shortly !'
-                    )
-                tracks = get_album_tracks(session, item['media_id'])
-                logger.info("Passing control to track downloader for album tracks downloading !!")
-                extra_path = config.get("album_name_formatter").format(artist=artist, rel_year=album_release_date,
-                                                                       album=album_name)
-                enqueue_part_cfg = {
-                    'extra_paths': item['data']['dl_path'] if item['data'].get('dl_path', None) else extra_path,
-                    'dl_path_override': True if item['data'].get('dl_path', None) else False
-                }
-                self.enqueue_tracks(tracks, enqueue_part_cfg=enqueue_part_cfg,
-                                    log_id=f'{album_name}:{item["media_id"]}',
-                                    itemtype=f"Album [{album_release_date}][{album_name}]")
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(
-                        f"Added album '[{album_release_date}] [{total_tracks}] {album_name}' to download queue !"
-                    )
-            elif item['media_type'] == 'artist':
-                item_name = item['data'].get('media_title', 'the artist')
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(
-                        f"All albums by {item_name} is being parsed and will be added to download queue soon!"
-                    )
-                albums = get_artist_albums(session, item['media_id'])
-                for album_id in albums:
-                    artist, album_release_date, album_name, total_tracks = get_album_name(session, album_id)
-                    item_name = artist
-                    tracks = get_album_tracks(session, album_id)
-                    logger.info("Passing control to track downloader for album artist downloading !!")
-                    extra_path = config.get("album_name_formatter").format(artist=artist, rel_year=album_release_date,
-                                                                           album=album_name)
-                    enqueue_part_cfg = {
-                        'extra_paths': item['data']['dl_path'] if item['data'].get('dl_path', None) else extra_path,
-                        'dl_path_override': True if item['data'].get('dl_path', None) else False
-                    }
-                    self.enqueue_tracks(tracks, enqueue_part_cfg=enqueue_part_cfg,
-                                        log_id=f'{artist}:{item["media_id"]}', itemtype=f"Artist [{item_name}]")
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(f"Added tracks by artist '{item_name}' to download queue !")
-            elif item['media_type'] == 'podcast':
-                show_name = ''
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit('Episodes are being parsed and will be added to download queue shortly !')
-                for episode_id in get_show_episodes(session, item['media_id']):
-                    show_name, episode_name = get_episode_info(session, episode_id)
-                    logger.info(
-                        f"PQP parsing podcast : {show_name}:{item['media_id']}, "
-                        f"episode item: {episode_name}:{episode_id}"
-                    )
-                    # TODO: Use new enqueue method
-                    self.enqueue.emit([[episode_name, "", f"Podcast [{show_name}]"], "episode", episode_id, ""])
-                    self.enqueue.emit(
-                        {
-                            'item_id': episode_id,
-                            'item_title': episode_name,
-                            'item_by_text': '',
-                            'item_type_text': f"Podcast [{show_name}]",
-                            'dl_params': {
-                                'media_type': 'episode',
-                                'extra_paths': '',
-                                'extra_path_as_root': bool(enqueue_part_cfg.get('dl_path_override', False)),
-                            }
-                        }
-                    )
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(f"Added show '{show_name}' to download queue!")
-            elif item['media_type'] == 'episode':
-                podcast_name, episode_name = get_episode_info(session, item['media_id'])
-                logger.info(f"PQP parsing podcast episode : {episode_name}:{item['media_id']}")
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(f"Adding episode '{episode_name}' of '{podcast_name}' to download queue !")
-                # TODO: Use new enqueue method
-                self.enqueue.emit([[episode_name, "", f"Podcast [{podcast_name}]"], "episode", item['media_id'], ""])
-                self.enqueue.emit(
-                    {
-                        'item_id': item['media_id'],
-                        'item_title': episode_name,
-                        'item_by_text': '',
-                        'item_type_text': f"Podcast [{podcast_name}]",
-                        'dl_params': {
-                            'media_type': 'episode',
-                            'extra_paths': '',
-                            'extra_path_as_root': bool(enqueue_part_cfg.get('dl_path_override', False)),
-                        }
-                    }
-                )
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(f"Added episode '{episode_name}' of {podcast_name} to download queue!")
-            elif item['media_type'] == "playlist":
-                enable_m3u = config.get('create_m3u_playlists', False)
-                name, owner, description, url = get_playlist_data(session, item["media_id"])
-                item_name = item['data'].get('media_title', name)
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(
-                        f"Tracks in playlist '{item_name}' by {owner['display_name']} is being parsed and "
-                        f"will be added to download queue shortly!"
-                    )
-                playlist_songs = get_tracks_from_playlist(session_pool[config.get("parsing_acc_sn") - 1],
-                                                          item['media_id'])
-                enqueue_part_cfg = {'extra_paths': item['data'].get('dl_path', ''),
-                                    'dl_path_override': True if item['data'].get('dl_path', None) else False
-                                    }
-                if enable_m3u:
-                    playlist_m3u_queue[item['media_id']] = {
-                        'filename': os.path.abspath(
-                            os.path.join(
-                                config.get('download_root'),
-                                config.get('playlist_name_formatter').format(name=name, owner=owner['display_name'],
-                                                                             description=description) + ".m3u8")
-                        ),
-                        'tracks': []
-                    }
-                for song in playlist_songs:
-                    if song['track']['id'] is not None:
-                        if enable_m3u:
-                            playlist_m3u_queue[item['media_id']]['tracks'].append(song['track']['id'])
-                        self.enqueue_tracks([song['track']], enqueue_part_cfg=enqueue_part_cfg,
-                                            log_id=f'{item_name}:{item["media_id"]}', itemtype=f"Playlis [{name}]")
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(f"Added playlist '{item_name}' by {owner['display_name']} to download queue !")
-            elif item['media_type'] == 'track':
-                artists, album_name, name, image_url, release_year, disc_number, track_number, scraped_song_id, \
-                is_playable = get_song_info(session, item['media_id'])
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(f"Adding track '{name}' to download queue !")
-                enqueue_part_cfg = {
-                    'extra_paths': item['data'].get('dl_path', ''),
-                    'dl_path_override': True if item['data'].get('dl_path', None) else False
-                }
-                track_obj = {
-                    'id': item['media_id'],
-                    'name': name,
-                    'explicit': False,
-                    'artists': [{'name': name} for name in artists]
-                }
-                self.enqueue_tracks([track_obj], enqueue_part_cfg=enqueue_part_cfg,
-                                    log_id=f'{name}:{item["media_id"]}', itemtype="Track")
-                if not item['data'].get('hide_dialogs', False):
-                    self.progress.emit(f"Added track '{name}' to download queue !")
+def retry_all_failed_downloads():
+    for dl_id in failed_downloads.keys():
+        downloads_status[dl_id]["status_label"].setText("Waiting")
+        downloads_status[dl_id]["btn"]['cancel'].show()
+        downloads_status[dl_id]["btn"]['retry'].hide()
+        download_queue.put(failed_downloads[dl_id].copy())
+        failed_downloads.pop(dl_id)
 
-    def setup(self, queue):
-        self.queue = queue
-        self.stop = False
+
+def cancel_all_downloads():
+    for did in downloads_status.keys():
+        try:
+            if downloads_status[did]['progress_bar'].value() < 95:
+                if did not in cancel_list:
+                    cancel_list[did] = {}
+        except (KeyError, RuntimeError):
+            pass
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+
+    def __init__(self, _dialog):
         super(MainWindow, self).__init__()
         self.path = os.path.dirname(os.path.realpath(__file__))
-        uic.loadUi(os.path.join(self.path, "ui", "main.ui"), self)
+        uic.loadUi(os.path.join(self.path, "qtui", "main.ui"), self)
         logger.info("Initialising main window")
-        self.btn_save_config.clicked.connect(self.__update_config)
-        self.btn_save_adv_config.clicked.connect(self.__update_config)
-        self.btn_login_add.clicked.connect(self.__add_account)
-        self.btn_search.clicked.connect(self.__get_search_results)
-        self.btn_url_download.clicked.connect(lambda x: self.__download_by_url(self.inp_dl_url.text()))
-        self.inp_enable_spot_watch.stateChanged.connect(self.__media_watcher_set)
-        self.inp_create_playlists.stateChanged.connect(self.__m3u_maker_set)
-        self.btn_seset_config.clicked.connect(self.__reset_app)
 
-        self.btn_search_download_all.clicked.connect(lambda x, cat="all": self.__mass_action_dl(cat))
-        self.btn_search_download_tracks.clicked.connect(lambda x, cat="tracks": self.__mass_action_dl(cat))
-        self.btn_search_download_albums.clicked.connect(lambda x, cat="albums": self.__mass_action_dl(cat))
-        self.btn_search_download_artists.clicked.connect(lambda x, cat="artists": self.__mass_action_dl(cat))
-        self.btn_search_download_playlists.clicked.connect(lambda x, cat="playlists": self.__mass_action_dl(cat))
-        self.btn_download_root_browse.clicked.connect(self.__select_dir)
-        self.btn_toggle_advanced.clicked.connect(self.__toggle_advanced)
-        self.btn_progress_clear_complete.clicked.connect(self.__clear_complete_downloads)
-        self.btn_progress_cancel_all.clicked.connect(self.__cancel_all_downloads)
-        self.btn_progress_retry_all.clicked.connect(self.__retry_all_failed)
+        # Bind button click
+        self.bind_button_inputs()
 
+        # Create required variables to store configuration state about other threads/objects
         self.__playlist_maker = None
-        self.__users = []
-        self.__media_watcher = None
         self.__media_watcher_thread = None
+        self.__media_watcher = None
+        # Variable to store data for class use
+        self.__users = []
         self.__parsing_queue = queue.Queue()
-        self.__downloads_status = {}
         self.__last_search_data = None
 
-        logger.info("Loading configurations..")
         # Fill the value from configs
+        logger.info("Loading configurations..")
         self.__fill_configs()
+
+        # Hide the advanced tab on initial startup
         self.__advanced_visible = False
         self.tabview.setTabVisible(1, self.__advanced_visible)
         if not self.__advanced_visible:
@@ -344,8 +102,8 @@ class MainWindow(QMainWindow):
 
         self.__splash_dialog = _dialog
 
+        # Start/create session builder and queue processor
         logger.info("Preparing session loader")
-        # Try logging in to sessions
         self.__session_builder_thread = QThread()
         self.__session_builder_worker = LoadSessions()
         self.__session_builder_worker.setup(self.__users)
@@ -357,9 +115,7 @@ class MainWindow(QMainWindow):
         self.__session_builder_thread.finished.connect(self.__session_builder_thread.deleteLater)
         self.__session_builder_worker.progress.connect(self.__show_popup_dialog)
         self.__session_builder_thread.start()
-
         logger.info("Preparing parsing queue processor")
-        # Create media queue processor
         self.__media_parser_thread = QThread()
         self.__media_parser_worker = ParsingQueueProcessor()
         self.__media_parser_worker.setup(self.__parsing_queue)
@@ -373,25 +129,54 @@ class MainWindow(QMainWindow):
         self.__media_parser_worker.enqueue.connect(self.__add_item_to_downloads)
         self.__media_parser_thread.start()
 
+        # Set the table header properties
+        self.set_table_props()
+        logger.info("Main window init completed !")
+
+    def bind_button_inputs(self):
+        # Connect button click signals
+        self.btn_search.clicked.connect(self.__get_search_results)
+        self.btn_login_add.clicked.connect(self.__add_account)
+        self.btn_save_config.clicked.connect(self.__update_config)
+        self.btn_seset_config.clicked.connect(self.reset_app_config)
+        self.btn_url_download.clicked.connect(lambda x: self.__download_by_url(self.inp_dl_url.text()))
+        self.btn_save_adv_config.clicked.connect(self.__update_config)
+        self.btn_toggle_advanced.clicked.connect(self.__toggle_advanced)
+        self.btn_progress_retry_all.clicked.connect(retry_all_failed_downloads)
+        self.btn_search_download_all.clicked.connect(lambda x, cat="all": self.__mass_action_dl(cat))
+        self.btn_progress_cancel_all.clicked.connect(cancel_all_downloads)
+        self.btn_download_root_browse.clicked.connect(self.__select_dir)
+        self.btn_search_download_tracks.clicked.connect(lambda x, cat="tracks": self.__mass_action_dl(cat))
+        self.btn_search_download_albums.clicked.connect(lambda x, cat="albums": self.__mass_action_dl(cat))
+        self.btn_search_download_artists.clicked.connect(lambda x, cat="artists": self.__mass_action_dl(cat))
+        self.btn_progress_clear_complete.clicked.connect(self.rem_complete_from_table)
+        self.btn_search_download_playlists.clicked.connect(lambda x, cat="playlists": self.__mass_action_dl(cat))
+
+        # Connect checkbox state change signals
+        self.inp_create_playlists.stateChanged.connect(self.__m3u_maker_set)
+        self.inp_enable_spot_watch.stateChanged.connect(self.__media_watcher_set)
+
+    def set_table_props(self):
         logger.info("Setting table item properties")
+        # Sessions table
         tbl_sessions_header = self.tbl_sessions.horizontalHeader()
         tbl_sessions_header.setSectionResizeMode(0, QHeaderView.Stretch)
         tbl_sessions_header.setSectionResizeMode(1, QHeaderView.Stretch)
         tbl_sessions_header.setSectionResizeMode(2, QHeaderView.Stretch)
         tbl_sessions_header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-
+        # Search results table
         tbl_search_results_headers = self.tbl_search_results.horizontalHeader()
         tbl_search_results_headers.setSectionResizeMode(0, QHeaderView.Stretch)
         tbl_search_results_headers.setSectionResizeMode(1, QHeaderView.Stretch)
         tbl_search_results_headers.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         tbl_search_results_headers.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-
+        # Download progress table
         tbl_dl_progress_header = self.tbl_dl_progress.horizontalHeader()
         tbl_dl_progress_header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         tbl_dl_progress_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         tbl_dl_progress_header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         tbl_dl_progress_header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        logger.info("Main window init completed !")
+        return True
 
     def __m3u_maker_set(self):
         logger.info("Playlist generator watcher set clicked")
@@ -426,7 +211,7 @@ class MainWindow(QMainWindow):
             self.__media_watcher_thread.started.connect(self.__media_watcher.run)
             self.__media_watcher.finished.connect(self.__media_watcher_thread.quit)
             self.__media_watcher.finished.connect(self.__media_watcher.deleteLater)
-            self.__media_watcher.finished.connect(self.__media_watcher_stopped)
+            self.__media_watcher.finished.connect(self.sig_media_track_end)
             self.__media_watcher.changed_media.connect(self.__download_by_url)
             self.__media_watcher_thread.finished.connect(self.__media_watcher_thread.deleteLater)
             self.__media_watcher_thread.start()
@@ -438,12 +223,12 @@ class MainWindow(QMainWindow):
             self.__media_watcher = None
             self.__media_watcher_thread = None
 
-    def __media_watcher_stopped(self):
+    def sig_media_track_end(self):
         logger.info("Watcher stopped")
         if self.inp_create_playlists.isChecked():
             self.inp_create_playlists.setChecked(False)
 
-    def __reset_app(self):
+    def reset_app_config(self):
         config.rollback()
         self.__show_popup_dialog("The application setting was cleared successfully !\n Please restart the application.")
 
@@ -463,38 +248,6 @@ class MainWindow(QMainWindow):
             self.group_temp_dl_root.hide()
         else:
             self.group_temp_dl_root.show()
-
-    def __dl_progress(self, data):
-        media_id = data[0]
-        status = data[1]
-        progress = data[2]
-        try:
-            if status is not None:
-                if 'failed' == status.lower() or 'cancelled' == status.lower():
-                    downloads_status[media_id]["btn"]['cancel'].hide()
-                    downloads_status[media_id]["btn"]['retry'].show()
-                if 'downloading' == status.lower():
-                    downloads_status[media_id]["btn"]['cancel'].show()
-                    downloads_status[media_id]["btn"]['retry'].hide()
-                downloads_status[media_id]["status_label"].setText(status)
-                logger.debug(f"Updating status text for download item '{media_id}' to '{status}'")
-            if progress is not None:
-                percent = int((progress[0] / progress[1]) * 100)
-                if percent >= 100:
-                    downloads_status[media_id]['btn']['cancel'].hide()
-                    downloads_status[media_id]['btn']['retry'].hide()
-                    downloads_status[media_id]['btn']['locate'].show()
-                    downloaded_data[media_id] = {
-                        'media_path': data[3],
-                        'media_name': data[4]
-                    }
-                downloads_status[media_id]["progress_bar"].setValue(percent)
-                logger.debug(f"Updating progressbar for download item '{media_id}' to '{percent}'%")
-        except KeyError:
-            logger.error(f"Why TF we get here ?, Got progressbar update for media_id '{media_id}' "
-                         f"which does not seem to exist !!! -> Valid Status items: "
-                         f"{str([_media_id for _media_id in downloads_status])} "
-                         )
 
     def __add_item_to_downloads(self, item):
         # Create progress status
@@ -546,8 +299,12 @@ class MainWindow(QMainWindow):
         self.tbl_dl_progress.setCellWidget(rows, 4, status)
         self.tbl_dl_progress.setCellWidget(rows, 5, actions)
 
-    def __show_popup_dialog(self, txt):
+    def __show_popup_dialog(self, txt, btn_hide=False):
         self.__splash_dialog.lb_main.setText(str(txt))
+        if btn_hide:
+            self.__splash_dialog.btn_close.hide()
+        else:
+            self.__splash_dialog.btn_close.show()
         self.__splash_dialog.show()
 
     def __session_load_done(self):
@@ -605,7 +362,7 @@ class MainWindow(QMainWindow):
 
     def __rebuild_threads(self):
         # Wait for all threads to close then rebuild threads
-        logger.info("Building downloader threads")
+        logger.info("Building downloader.py threads")
         if len(session_pool) > 0:
             logger.warning("Session pool not empty ! Reset not implemented")
             if len(thread_pool) == 0:
@@ -628,7 +385,7 @@ class MainWindow(QMainWindow):
                     item[0].finished.connect(item[1].quit)
                     item[0].finished.connect(item[0].deleteLater)
                     item[1].finished.connect(item[1].deleteLater)
-                    item[0].progress.connect(self.__dl_progress)
+                    item[0].progress.connect(dl_progress_update)
                     item[1].start()
                     thread_pool.append(item)
             else:
@@ -895,100 +652,23 @@ class MainWindow(QMainWindow):
                     f"All all results of types {','.join(x for x in downloaded_types)} added to queue"
                 )
 
-    def __clear_complete_downloads(self):
+    def rem_complete_from_table(self):
         logger.info('Clearing complete downloads')
         complete_ids = []
-        for id in downloads_status.keys():
+        for dl_id in downloads_status.keys():
             try:
-                logger.info(f"Checking download status for media id: {id}, "
-                            f"{downloads_status[id]['progress_bar'].value()}")
-                if downloads_status[id]['progress_bar'].value() == 100 or \
-                        downloads_status[id]['status_label'].text().lower() == 'cancelled':
-                    logger.info(f'ID: {id} is complete or cancelled')
-                    complete_ids.append(id)
-                rows = self.tbl_dl_progress.rowCount()
-                for i in range(rows):
-                    if self.tbl_dl_progress.item(i, 0).text() in complete_ids:
-                        self.tbl_dl_progress.removeRow(i)
-                for id in complete_ids:
-                    downloads_status.pop(id)
+                logger.info(f"Checking download status for media id: {dl_id}, "
+                            f"{downloads_status[dl_id]['progress_bar'].value()}")
+                if downloads_status[dl_id]['progress_bar'].value() == 100 or \
+                        downloads_status[dl_id]['status_label'].text().lower() == 'cancelled':
+                    logger.info(f'ID: {dl_id} is complete or cancelled')
+                    complete_ids.append(dl_id)
             except (RuntimeError, AttributeError):
-                logger.info(f"Checking download status for media id: {id}, Runtime error->Removing")
-                complete_ids.append(id)
-
-    def __cancel_all_downloads(self):
-        for id in downloads_status:
-            if downloads_status[id]['progress_bar'].value() < 95:
-                if id not in cancel_list:
-                    cancel_list[id] = {}
-
-    def __retry_all_failed(self):
-        for id in failed_downloads.keys():
-            downloads_status[id]["status_label"].setText("Waiting")
-            downloads_status[id]["btn"]['cancel'].show()
-            downloads_status[id]["btn"]['retry'].hide()
-            download_queue.put(failed_downloads[id].copy())
-            failed_downloads.pop(id)
-
-
-class MiniDialog(QDialog):
-    def __init__(self, parent=None):
-        super(MiniDialog, self).__init__(parent)
-        self.path = os.path.dirname(os.path.realpath(__file__))
-        uic.loadUi(os.path.join(self.path, 'ui', 'notice.ui'), self)
-        self.btn_close.clicked.connect(self.hide)
-        logger.debug('Dialog item is ready..')
-
-    def run(self, content, btn_hidden=False):
-        if btn_hidden:
-            self.btn_close.hide()
-        else:
-            self.btn_close.show()
-        self.show()
-        logger.debug(f"Displaying dialog with text '{content}'")
-        self.lb_main.setText(str(content))
-
-
-class DownloadActionsButtons(QWidget):
-    def __init__(self, id, pbar, cbtn, rbtn, lbtn, parent=None):
-        super(DownloadActionsButtons, self).__init__(parent)
-        self.__id = id
-        self.cbtn = cbtn
-        self.rbtn = rbtn
-        self.lbtn = lbtn
-        layout = QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        cbtn.clicked.connect(self.cancel_item)
-        rbtn.clicked.connect(self.retry_item)
-        lbtn.clicked.connect(self.locate_file)
-        layout.addWidget(pbar)
-        layout.addWidget(cbtn)
-        layout.addWidget(rbtn)
-        layout.addWidget(lbtn)
-        self.setLayout(layout)
-
-    def locate_file(self):
-        if self.__id in downloaded_data:
-            if downloaded_data[self.__id].get('media_path', None):
-                show_in_file_manager(os.path.abspath(downloaded_data[self.__id]['media_path']))
-
-    def cancel_item(self):
-        cancel_list[self.__id] = {}
-        self.cbtn.hide()
-
-    def retry_item(self):
-        if self.__id in failed_downloads:
-            downloads_status[self.__id]["status_label"].setText("Waiting")
-            self.rbtn.hide()
-            download_queue.put(failed_downloads[self.__id])
-            self.cbtn.show()
-
-
-if __name__ == '__main__':
-    logger.info('Starting application in 3...2....1')
-    app = QApplication(sys.argv)
-    _dialog = MiniDialog()
-    window = MainWindow()
-    app.exec_()
-    logger.info('Good bye ..')
+                logger.info(f"Checking download status for media id: {dl_id}, Runtime error->Removing")
+                complete_ids.append(dl_id)
+        rows = self.tbl_dl_progress.rowCount()
+        for i in range(rows):
+            id_val = self.tbl_dl_progress.item(i, 0).text()
+            if id_val in complete_ids:
+                self.tbl_dl_progress.removeRow(i)
+            downloads_status.pop(id_val)

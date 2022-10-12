@@ -1,13 +1,10 @@
 import os
 import json
 import platform
+import shutil
 import sys
+import time
 from shutil import which
-
-
-def data_path(relative_path):
-    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_path, relative_path)
 
 
 class Config:
@@ -16,11 +13,8 @@ class Config:
             cfg_path = os.path.join(os.path.expanduser("~"), ".config", "casualOnTheSpot", "config.json")
         self.__cfg_path = cfg_path
         self.platform = platform.system()
-        def_ff_path = which("ffmpeg")
-        if def_ff_path is None:
-            def_ff_path = data_path(os.path.join("bin", "ffmpeg"))
-        else:
-            def_ff_path = os.path.dirname(def_ff_path)
+        self.ext_ = ".exe" if self.platform == "Windows" else ""
+        def_ff_path = os.path.dirname(os.path.abspath(which('ffmpeg'))) if which('ffmpeg') else ''
         self.__template_data = {
             "version": 0.4,
             "max_threads": 1,
@@ -57,8 +51,19 @@ class Config:
             self.__config = self.__template_data
         os.makedirs(self.get("download_root"), exist_ok=True)
         os.makedirs(os.path.dirname(self.get("log_file")), exist_ok=True)
-        if which("ffmpeg") is None:
-            os.environ["PATH"] = def_ff_path + os.pathsep + os.environ["PATH"]
+        # Look up and try to fix ffmpeg issues
+        if not os.path.isfile(os.path.join(self.get('ffmpeg_bin_dir'), 'ffmpeg' + self.ext_)):
+            print('FFMPEG not found in default path: ', os.path.join(self.get('ffmpeg_bin_dir'), 'ffmpeg' + self.ext_))
+            app_root = os.path.dirname(os.path.realpath(__file__))
+            local_ff_path = os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)
+            print('Trying to use local/embedded ffmpeg at: ', app_root)
+            if os.path.isfile(local_ff_path):
+                print('Using binaries at : ', local_ff_path)
+                os.environ['PATH'] = os.path.dirname(local_ff_path) + os.pathsep + os.environ['PATH']
+            else:
+                print('Local ffmpeg not found at: ', local_ff_path)
+        else:
+            print('Using ffmpeg at :', os.path.join(self.get('ffmpeg_bin_dir'), 'ffmpeg' + self.ext_))
 
     def get(self, key, default=None):
         if key in self.__config:
