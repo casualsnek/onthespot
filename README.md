@@ -11,7 +11,7 @@ Make sure [python3](https://www.python.org/downloads) and [Git](https://git-scm.
   - Download or Clone the repo ```git clone https://github.com/casualsnek/onthespot```
   - Navigate to the onthespot directory ```cd onthespot```
   - Install the dependencies with ```pip install -r requirements.txt```
-  - Launch the application with ```python3 onthespot.py```
+  - Launch the application with ```python3 __init__.py```
  
  *Windows users should also follow these extra steps before running:* ```python3 onthespot.py```
  ```
