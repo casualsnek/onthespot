@@ -19,3 +19,4 @@ urllib3==1.26.12
 websocket-client==1.4.0
 zeroconf==0.39.0
 simpleaudio==1.0.4
+show-in-file-manager==1.1.4

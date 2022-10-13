@@ -13,7 +13,8 @@ Make sure [Python3](https://www.python.org/downloads) and [Git](https://git-scm.
   - Install the dependencies with ```pip install -r requirements.txt```
   - (ONLY IF USING WINDOWS) Install another dependancy with ```pip install winsdk```
   - Launch the application with ```python3 onthespot.py```
-
+ 
+ 
 ## 1.2. Using prebuilt binaries
 ### On Linux
 Download the latest 'onthespot_linux' from the [releases](https://github.com/casualsnek/onthespot/releases) and execute with
@@ -84,10 +85,10 @@ The download status and progress can be viewed by navigating to the 'Progress' t
 - **Max retries**                     : Number of times to retry a download before moving on.
 - **Max search results**              : The number of items to show in search result for each type of media. Example: setting it to '1' shows one result for artist, album, track and playlist resulting in 4 total search results.
 - **Raw media download**              : Downloads files (they will be .ogg) to disk without converting to set media format, it also disables metadata writing and thumbnail embedding.
-- **Force premium**                   : Use this if your premium accounts shows FREE in accounts table, this applies to all added accounts so it's not recommended to use with a combination of free and premium accounts. Don't use if your account isn't actually premium.
-- **Enable desktop app play to download** : Enabling will automatically download songs you play on the spotify desktop application.
-- **Show/Hide Advanced Configuration**: Enable/disables the advanced configuration tab.
-- **Save setting**: Saves/applies the settings.
+- **Force premium**                   : Use this if your premium accounts shows FREE in accounts table, this applies to all added accounts so it's not recommeded to use with a combination of free and premium accounts. Don't use if account isn't premium.
+- **Enable desktop app play to download** : Enabling will automatically download songs you play on spotify desktop application. (Supported: Linux/Windows)
+- **Show/Hide Advanced Configuration**: Enable/Disables the Advanced configuration tab.
+- **Save setting**: Saves/Applies the settings
 
 ### 3.2. Advanced Configuration
 Default track names are  ```AlbumFormatter/TrackName```

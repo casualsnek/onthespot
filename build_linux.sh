@@ -6,7 +6,6 @@ if [ -f "./dist/onthespot_linux" ]; then
     rm ./dist/onthespot_linux
 fi
 rm -rf ./build
-rm -rf ./dist
 rm -rf ./venv
 echo " => Creating virtual env."
 python3 -m venv venv
@@ -19,18 +18,18 @@ pip install -r requirements.txt
 if [ -f "ffbin_nix/ffmpeg" ]; then
     echo " => Found 'ffbin_win' directory and ffmpeg binary.. Using ffmpeg binary append mode "
     pyinstaller --onefile \
-                --add-data="ui/*.ui:ui" \
+                --add-data="gui/qtui/*.ui:qui/qtui" \
                 --add-binary="ffbin_nix/*:bin/ffmpeg" \
                 --paths="." \
                 --name="onthespot_linux" \
-                onthespot.py
+                __init__.py
 else
     echo " => Building to use ffmpeg binary from system... "
     pyinstaller --onefile \
-                --add-data="ui/*.ui:ui" \
+                --add-data="gui/qtui/*.ui:gui/qtui" \
                 --paths="." \
                 --name="onthespot_linux" \
-                onthespot.py
+                __init__.py
 fi
 echo " => Setting permissions.. "
 chmod +x ./dist/onthespot_linux
