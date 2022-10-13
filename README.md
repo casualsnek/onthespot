@@ -20,6 +20,17 @@ Make sure [python3](https://www.python.org/downloads) and [Git](https://git-scm.
   
 ## 1.2. Using prebuilt binaries
 ### On Linux
+#### Arch Linux
+`onthespot` is available for arch linux and arch linux based distributions in arch user repository (aur) as [onthespot-git](https://aur.archlinux.org/packages/onthespot-git).
+
+You can install `onthespot` using your favourite aur helper.
+
+For eg: using yay
+```
+yay -Sy onthespot-git
+```
+
+#### Other Distributions
 Download Latest 'onthespot_linux' from the release section and execute with
  ```
  chmod +x onthespot_linux
