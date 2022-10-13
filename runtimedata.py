@@ -25,6 +25,7 @@ cancel_list = {}
 downloads_status = {}
 playlist_m3u_queue = {}
 downloaded_data = {}
+unavailable = set()
 
 loglevel = int(os.environ.get("LOG_LEVEL", 20))
 

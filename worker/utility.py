@@ -2,7 +2,7 @@ import os
 import time
 from PyQt5.QtCore import QObject, pyqtSignal
 from otsconfig import config
-from runtimedata import get_logger, playlist_m3u_queue, downloaded_data, session_pool
+from runtimedata import get_logger, playlist_m3u_queue, downloaded_data, session_pool, unavailable
 from utils.spotify import get_album_tracks, get_album_name, get_artist_albums, get_show_episodes, get_episode_info, \
     get_song_info, get_tracks_from_playlist, get_playlist_data
 
@@ -17,22 +17,24 @@ class PlayListMaker(QObject):
     def run(self):
         logger.info('Playlist m3u8 builder is running....')
         while not self.__stop:
-            play_queue = playlist_m3u_queue.copy()
-            ddc = downloaded_data.copy()
-            for play_id in play_queue:
+            ddc = set(downloaded_data.keys()).difference(unavailable)
+            for play_id in list(playlist_m3u_queue.keys()):
                 logger.info(f'Playlist m3u8 checking ID {play_id}')
-                if set(play_queue[play_id]['tracks']).intersection(set(ddc.keys())) == set(
-                        play_queue[play_id]['tracks']):
+                if set(playlist_m3u_queue[play_id]['tracks']).intersection(ddc) == set(
+                        playlist_m3u_queue[play_id]['tracks']):
                     logger.info(f'Playlist {play_id} has all items ready, making m3u8 playlist at: '
                                 f'{{play_queue[play_id]["filename"]}}!')
                     # Write the m3u8 header
-                    os.makedirs(os.path.dirname(play_queue[play_id]['filename']), exist_ok=True)
-                    with open(play_queue[play_id]['filename'], 'w') as f:
+                    os.makedirs(os.path.dirname(playlist_m3u_queue[play_id]['filename']), exist_ok=True)
+                    with open(playlist_m3u_queue[play_id]['filename'], 'w') as f:
                         f.write('#EXTM3U\n')
                     tid = 1
-                    for track_id in play_queue[play_id]['tracks']:
+                    for track_id in playlist_m3u_queue[play_id]['tracks']:
                         logger.info(f'Playlist: {play_id}, adding track: {track_id} to m3u8')
-                        with open(play_queue[play_id]['filename'], 'a') as f:
+                        if track_id in unavailable:
+                            logger.info(f'Playlist: {play_id}, track: {track_id}  unavailable for adding, skipping')
+                            continue
+                        with open(playlist_m3u_queue[play_id]['filename'], 'a') as f:
                             f.write(
                                 f'#EXTINF:{tid}, {downloaded_data[track_id]["media_name"]}\n'
                                 f'{downloaded_data[track_id]["media_path"]}\n'

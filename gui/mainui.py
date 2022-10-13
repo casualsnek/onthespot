@@ -24,9 +24,10 @@ def dl_progress_update(data):
     progress = data[2]
     try:
         if status is not None:
-            if 'failed' == status.lower() or 'cancelled' == status.lower():
+            if status.lower() in ['failed', 'cancelled', 'unavailable']:
                 downloads_status[media_id]["btn"]['cancel'].hide()
-                downloads_status[media_id]["btn"]['retry'].show()
+                if status.lower() != "unavailable":
+                    downloads_status[media_id]["btn"]['retry'].show()
             if 'downloading' == status.lower():
                 downloads_status[media_id]["btn"]['cancel'].show()
                 downloads_status[media_id]["btn"]['retry'].hide()
@@ -52,7 +53,7 @@ def dl_progress_update(data):
 
 
 def retry_all_failed_downloads():
-    for dl_id in failed_downloads.keys():
+    for dl_id in list(failed_downloads.keys()):
         downloads_status[dl_id]["status_label"].setText("Waiting")
         downloads_status[dl_id]["btn"]['cancel'].show()
         downloads_status[dl_id]["btn"]['retry'].hide()
@@ -62,12 +63,12 @@ def retry_all_failed_downloads():
 
 def cancel_all_downloads():
     for did in downloads_status.keys():
+        print('Trying to cancel : ', did)
         try:
-            if downloads_status[did]['progress_bar'].value() < 95:
-                if did not in cancel_list:
-                    cancel_list[did] = {}
+            if downloads_status[did]['progress_bar'].value() < 95 and did not in cancel_list:
+                cancel_list[did] = {}
         except (KeyError, RuntimeError):
-            pass
+            logger.info('Cannot cancel media id: {did}, this might have been cleared')
 
 
 class MainWindow(QMainWindow):
@@ -251,6 +252,23 @@ class MainWindow(QMainWindow):
 
     def __add_item_to_downloads(self, item):
         # Create progress status
+        if item['item_id'] in downloads_status:
+            # If the item is in download status dictionary, it's not cleared from view
+            logger.info('The media: {item["item"]} was already in view')
+            if item['item_id'] in cancel_list:
+                logger.info('The media: {item["item"]} was being cancelled, preventing cancellation !')
+                cancel_list.pop(item['item_id'])
+            elif item['item_id'] in failed_downloads:
+                dl_id = item['item_id']
+                logger.info('The media: {item["item"]} had failed to download, re-downoading ! !')
+                downloads_status[dl_id]["status_label"].setText("Waiting")
+                downloads_status[dl_id]["btn"]['cancel'].show()
+                downloads_status[dl_id]["btn"]['retry'].hide()
+                download_queue.put(failed_downloads[dl_id].copy())
+                failed_downloads.pop(dl_id)
+            else:
+                logger.info('The media: {item["item"]} is already in queue and is being downloaded, ignoring.. !')
+            return None
         pbar = QProgressBar()
         pbar.setValue(0)
         cancel_btn = QPushButton()
@@ -654,21 +672,10 @@ class MainWindow(QMainWindow):
 
     def rem_complete_from_table(self):
         logger.info('Clearing complete downloads')
-        complete_ids = []
-        for dl_id in downloads_status.keys():
-            try:
-                logger.info(f"Checking download status for media id: {dl_id}, "
-                            f"{downloads_status[dl_id]['progress_bar'].value()}")
-                if downloads_status[dl_id]['progress_bar'].value() == 100 or \
-                        downloads_status[dl_id]['status_label'].text().lower() == 'cancelled':
-                    logger.info(f'ID: {dl_id} is complete or cancelled')
-                    complete_ids.append(dl_id)
-            except (RuntimeError, AttributeError):
-                logger.info(f"Checking download status for media id: {dl_id}, Runtime error->Removing")
-                complete_ids.append(dl_id)
         rows = self.tbl_dl_progress.rowCount()
         for i in range(rows):
-            id_val = self.tbl_dl_progress.item(i, 0).text()
-            if id_val in complete_ids:
+            progress = self.tbl_dl_progress.item(i, 5).value()
+            status = self.tbl_dl_progress.item(i, 4).text()
+            if progress == 100 or status in ['cancelled', 'unavailable']:
                 self.tbl_dl_progress.removeRow(i)
-            downloads_status.pop(id_val)
+            downloads_status.pop(self.tbl_dl_progress.item(i, 0).text())

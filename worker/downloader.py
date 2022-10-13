@@ -7,7 +7,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from librespot.audio.decoders import AudioQuality, VorbisOnlyAudioQuality
 from librespot.metadata import TrackId, EpisodeId
 from otsconfig import config
-from runtimedata import get_logger, cancel_list, failed_downloads
+from runtimedata import get_logger, cancel_list, failed_downloads, unavailable
 from utils.spotify import check_premium, get_song_info, convert_audio_format, set_music_thumbnail, set_audio_tags, \
     get_episode_info, get_track_lyrics
 
@@ -30,9 +30,11 @@ class DownloadWorker(QObject):
             f"Downloading track by id '{track_id_str}', extra_paths: '{extra_paths}', "
             f"extra_path_as_root: '{extra_path_as_root}' ")
         if trk_track_id_str in cancel_list:
+            logger.info(f'The media : {trk_track_id_str} was cancelled !')
             self.progress.emit([trk_track_id_str, "Cancelled", [0, 100]])
             cancel_list.pop(trk_track_id_str)
             failed_downloads[trk_track_id_str] = {}
+            self.__last_cancelled = True
             return False
         skip_existing_file = True
         chunk_size = config.get("chunk_size")
@@ -67,13 +69,15 @@ class DownloadWorker(QObject):
             return False
         try:
             if not is_playable:
-                self.progress.emit([trk_track_id_str, "Unavailable", None])
                 logger.error(f"Track is unavailable, track id '{trk_track_id_str}'")
+                self.progress.emit([trk_track_id_str, "Unavailable", [0, 100]])
+                self.__last_cancelled = True
                 return False
             else:
                 if os.path.isfile(filename) and os.path.getsize(filename) and skip_existing_file:
                     self.progress.emit([trk_track_id_str, "Already exists", [100, 100],
                                         filename, f'{name} [{_artist} - {album_name}:{release_year}].mp3'])
+                    unavailable.add(trk_track_id_str)
                     logger.info(f"File already exists, Skipping download for track by id '{trk_track_id_str}'")
                     self.__last_cancelled = True
                     return True
