@@ -671,11 +671,17 @@ class MainWindow(QMainWindow):
                 )
 
     def rem_complete_from_table(self):
-        logger.info('Clearing complete downloads')
-        rows = self.tbl_dl_progress.rowCount()
-        for i in range(rows):
-            progress = self.tbl_dl_progress.item(i, 5).value()
-            status = self.tbl_dl_progress.item(i, 4).text()
-            if progress == 100 or status in ['cancelled', 'unavailable']:
-                self.tbl_dl_progress.removeRow(i)
-            downloads_status.pop(self.tbl_dl_progress.item(i, 0).text())
+        check_row = 0
+        while check_row < self.tbl_dl_progress.rowCount():
+            did = self.tbl_dl_progress.item(check_row, 0).text()
+            logger.info(f'Removing Row : {check_row} and mediaid: {did}')
+            if did in downloads_status:
+                progress = downloads_status[did]["progress_bar"].value()
+                status = downloads_status[did]["status_label"].text()
+                if progress == 100 or status in ['cancelled', 'unavailable']:
+                    self.tbl_dl_progress.removeRow(check_row)
+                    downloads_status.pop(did)
+                else:
+                    check_row = check_row + 1
+            else:
+                check_row = check_row + 1
