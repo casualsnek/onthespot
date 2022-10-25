@@ -2,7 +2,7 @@
 qt based music downloader written in python.
 ![Screenshot](https://i.imgur.com/C4V94gy.png)
 
-### Discord for discussions: [Discord Invite](https://discord.gg/2t6BNVgZ)
+### Discord for discussions: [Discord Invite](https://discord.gg/hz4mAwSujH)
 If you have an idea for an improvement or feature, create a issue or join the discord server to discuss!
 
 # 1. Installing/launching application:
