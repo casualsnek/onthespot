@@ -78,7 +78,7 @@ class MainWindow(QMainWindow):
         self.path = os.path.dirname(os.path.realpath(__file__))
         uic.loadUi(os.path.join(self.path, "qtui", "main.ui"), self)
         logger.info("Initialising main window")
-
+        self.group_search_items.hide()
         # Bind button click
         self.bind_button_inputs()
 
@@ -97,7 +97,7 @@ class MainWindow(QMainWindow):
 
         # Hide the advanced tab on initial startup
         self.__advanced_visible = False
-        self.tabview.setTabVisible(1, self.__advanced_visible)
+        self.tabview.setTabVisible(3, self.__advanced_visible)
         if not self.__advanced_visible:
             self.group_temp_dl_root.hide()
 
@@ -137,22 +137,24 @@ class MainWindow(QMainWindow):
     def bind_button_inputs(self):
         # Connect button click signals
         self.btn_search.clicked.connect(self.__get_search_results)
+
         self.btn_login_add.clicked.connect(self.__add_account)
         self.btn_save_config.clicked.connect(self.__update_config)
         self.btn_seset_config.clicked.connect(self.reset_app_config)
-        self.btn_url_download.clicked.connect(lambda x: self.__download_by_url(self.inp_dl_url.text()))
+
+        self.btn_search_download_all.clicked.connect(lambda x, cat="all": self.__mass_action_dl(cat))
         self.btn_save_adv_config.clicked.connect(self.__update_config)
         self.btn_toggle_advanced.clicked.connect(self.__toggle_advanced)
         self.btn_progress_retry_all.clicked.connect(retry_all_failed_downloads)
-        self.btn_search_download_all.clicked.connect(lambda x, cat="all": self.__mass_action_dl(cat))
         self.btn_progress_cancel_all.clicked.connect(cancel_all_downloads)
         self.btn_download_root_browse.clicked.connect(self.__select_dir)
+        self.inp_search_term.returnPressed.connect(self.__get_search_results)
         self.btn_search_download_tracks.clicked.connect(lambda x, cat="tracks": self.__mass_action_dl(cat))
         self.btn_search_download_albums.clicked.connect(lambda x, cat="albums": self.__mass_action_dl(cat))
         self.btn_search_download_artists.clicked.connect(lambda x, cat="artists": self.__mass_action_dl(cat))
         self.btn_progress_clear_complete.clicked.connect(self.rem_complete_from_table)
         self.btn_search_download_playlists.clicked.connect(lambda x, cat="playlists": self.__mass_action_dl(cat))
-
+        self.btn_search_filter_toggle.clicked.connect(lambda toggle: self.group_search_items.show() if self.group_search_items.isHidden() else self.group_search_items.hide())
         # Connect checkbox state change signals
         self.inp_create_playlists.stateChanged.connect(self.__m3u_maker_set)
         self.inp_enable_spot_watch.stateChanged.connect(self.__media_watcher_set)
@@ -244,7 +246,7 @@ class MainWindow(QMainWindow):
 
     def __toggle_advanced(self):
         self.__advanced_visible = False if self.__advanced_visible else True
-        self.tabview.setTabVisible(1, self.__advanced_visible)
+        self.tabview.setTabVisible(3, self.__advanced_visible)
         if not self.__advanced_visible:
             self.group_temp_dl_root.hide()
         else:
@@ -554,7 +556,11 @@ class MainWindow(QMainWindow):
 
     def __get_search_results(self):
         search_term = self.inp_search_term.text().strip()
-        logger.info(f"Search clicked with value {search_term}")
+        if search_term.startswith('https://'):
+            logger.info(f"Search clicked with value with url {search_term}")
+            self.__download_by_url(search_term)
+            return True
+        logger.info(f"Search clicked with value term {search_term}")
         if len(session_pool) <= 0:
             self.__splash_dialog.run('You need to login to at least one account to use this feature !')
             return None
@@ -671,11 +677,17 @@ class MainWindow(QMainWindow):
                 )
 
     def rem_complete_from_table(self):
-        logger.info('Clearing complete downloads')
-        rows = self.tbl_dl_progress.rowCount()
-        for i in range(rows):
-            progress = self.tbl_dl_progress.item(i, 5).value()
-            status = self.tbl_dl_progress.item(i, 4).text()
-            if progress == 100 or status in ['cancelled', 'unavailable']:
-                self.tbl_dl_progress.removeRow(i)
-            downloads_status.pop(self.tbl_dl_progress.item(i, 0).text())
+        check_row = 0
+        while check_row < self.tbl_dl_progress.rowCount():
+            did = self.tbl_dl_progress.item(check_row, 0).text()
+            logger.info(f'Removing Row : {check_row} and mediaid: {did}')
+            if did in downloads_status:
+                progress = downloads_status[did]["progress_bar"].value()
+                status = downloads_status[did]["status_label"].text()
+                if progress == 100 or status in ['cancelled', 'unavailable']:
+                    self.tbl_dl_progress.removeRow(check_row)
+                    downloads_status.pop(did)
+                else:
+                    check_row = check_row + 1
+            else:
+                check_row = check_row + 1
