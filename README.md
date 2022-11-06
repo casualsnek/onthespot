@@ -167,7 +167,7 @@ Do not include '.' in it. This setting will be ignored while using the raw media
 Decode error: If you are receiving this error, your account might have got restricted. Wait some time or try a different account. The application may crash frequently as there is no proper exception handling yet. You can help by opening a new issue with the error message displayed in your console window after the application misbehaves.
 
 # 6. TODOS
- - Synced lyrics downloads
+ - ~~Synced lyrics downloads~~
  - Improve UI/UX ( Suggestions needed by users )
  - Refactor code
  
