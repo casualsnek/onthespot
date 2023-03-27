@@ -217,7 +217,12 @@ def get_song_info(session, song_id):
         artists.append(sanitize_data(data['name']))
     album_name = sanitize_data(info['tracks'][0]['album']["name"])
     name = sanitize_data(info['tracks'][0]['name'])
-    image_url = info['tracks'][0]['album']['images'][len(info['tracks'][0]['album']['images'])-1]['url']
+    image_url = ''
+    highest_resolution = 0
+    for image in info['tracks'][0]['album']['images']:
+        if image['height'] * image['width'] > highest_resolution:
+            highest_resolution = image['height'] * image['width']
+            image_url = image['url']
     release_year = info['tracks'][0]['album']['release_date'].split("-")[0]
     disc_number = info['tracks'][0]['disc_number']
     track_number = info['tracks'][0]['track_number']
