@@ -58,7 +58,11 @@ class DownloadWorker(QObject):
                                                                   disc_number=disc_number,
                                                                   track_number=track_number,
                                                                   spotid=scraped_song_id
-                                                                  ) + "." + config.get("media_format") if not config.get("force_raw") else "ogg"
+                                                                  )
+            if not config.get("force_raw"):
+                song_name = song_name + "." + config.get("media_format")
+            else:
+                song_name = song_name + ".ogg"
             if not extra_path_as_root:
                 filename = os.path.join(config.get("download_root"), extra_paths, song_name)
             else:
@@ -123,10 +127,6 @@ class DownloadWorker(QObject):
                                 return None
                             self.progress.emit([trk_track_id_str, None, [downloaded, total_size]])
                     if not config.get("force_raw"):
-                        logger.warning(
-                            f"Force raw is disabled for track by id '{trk_track_id_str}', "
-                            f"media converting and tagging will be done !"
-                        )
                         self.progress.emit([trk_track_id_str, "Converting", None])
                         convert_audio_format(filename, quality)
                         self.progress.emit([trk_track_id_str, "Writing metadata", None])
@@ -134,31 +134,31 @@ class DownloadWorker(QObject):
                                        release_year, disc_number, track_number, trk_track_id_str)
                         self.progress.emit([trk_track_id_str, "Setting thumbnail", None])
                         set_music_thumbnail(filename, image_url)
-
-                        self.progress.emit([trk_track_id_str, "Downloaded", [100, 100],
-                                            filename, f'{name} [{_artist} - {album_name}:{release_year}].f{config.get("media_format")}'])
-
-                        logger.info(f"Downloaded track by id '{trk_track_id_str}'")
-                        if config.get('inp_enable_lyrics'):
-                            logger.info(f'Fetching lyrics for track id: {trk_track_id_str}, '
-                                        f'{config.get("only_synced_lyrics")}')
-                            try:
-                                lyrics = get_track_lyrics(session, trk_track_id_str, config.get('only_synced_lyrics'))
-                                if lyrics:
-                                    logger.info(f'Found lyrics for: {trk_track_id_str}, writing...')
-                                    with open(filename[0:-len(config.get('media_format'))] + 'lrc', 'w',
-                                              encoding='utf-8') as f:
-                                        f.write(lyrics)
-                                    logger.info(f'lyrics saved for: {trk_track_id_str}')
-                            except Exception:
-                                logger.error(f'Could not get lyrics for {trk_track_id_str}, '
-                                             f'unexpected error: {traceback.format_exc()}')
-                        return True
                     else:
-                        logger.info(f"Downloaded track by id '{trk_track_id_str}', in raw mode")
-                        self.progress.emit([trk_track_id_str, "Downloaded", [100, 100],
-                                            filename, f'{name} [{_artist} - {album_name}:{release_year}].f{config.get("media_format")}'])
-                        return True
+                        logger.warning(
+                            f"Force raw is disabled for track by id '{trk_track_id_str}', "
+                            f"media converting and tagging will be done !"
+                        )
+                    logger.info(f"Downloaded track by id '{trk_track_id_str}'")
+                    if config.get('inp_enable_lyrics'):
+                        self.progress.emit([trk_track_id_str, "Getting Lyrics", None])
+                        logger.info(f'Fetching lyrics for track id: {trk_track_id_str}, '
+                                    f'{config.get("only_synced_lyrics")}')
+                        try:
+                            lyrics = get_track_lyrics(session, trk_track_id_str, config.get('only_synced_lyrics'))
+                            if lyrics:
+                                logger.info(f'Found lyrics for: {trk_track_id_str}, writing...')
+                                with open(filename[0:-len(config.get('media_format'))] + 'lrc', 'w',
+                                          encoding='utf-8') as f:
+                                    f.write(lyrics)
+                                logger.info(f'lyrics saved for: {trk_track_id_str}')
+                        except Exception:
+                            logger.error(f'Could not get lyrics for {trk_track_id_str}, '
+                                         f'unexpected error: {traceback.format_exc()}')
+                    self.progress.emit([trk_track_id_str, "Downloaded", [100, 100],
+                                        filename,
+                                        f'{name} [{_artist} - {album_name}:{release_year}].f{config.get("media_format")}'])
+                    return True
         except queue.Empty:
             if os.path.exists(filename):
                 os.remove(filename)
