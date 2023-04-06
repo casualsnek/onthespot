@@ -41,6 +41,8 @@ class Config:
             "only_synced_lyrics": False,
             "create_m3u_playlists": False,
             "ffmpeg_args": "",
+            "show_search_thumbails": 1,
+            "search_thumb_height": 60,
             "accounts": []
         }
         if os.path.isfile(self.__cfg_path):

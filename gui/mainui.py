@@ -1,12 +1,11 @@
 import os
 import queue
 import time
-from PyQt5 import uic
+from PyQt5 import uic, QtNetwork
 from PyQt5.QtCore import QThread
 from PyQt5.QtWidgets import QMainWindow, QHeaderView, QLabel, QPushButton, QProgressBar, QTableWidgetItem, QFileDialog
-
 from exceptions import EmptySearchResultException
-from utils.spotify import search_by_term
+from utils.spotify import search_by_term, get_thumbnail
 from utils.utils import name_by_from_sdata, login_user, remove_user, get_url_data
 from worker import LoadSessions, ParsingQueueProcessor, MediaWatcher, PlayListMaker, DownloadWorker
 from .dl_progressbtn import DownloadActionsButtons
@@ -14,6 +13,7 @@ from .minidialog import MiniDialog
 from otsconfig import config
 from runtimedata import get_logger, download_queue, downloads_status, downloaded_data, failed_downloads, cancel_list, \
     session_pool, thread_pool
+from .thumb_listitem import LabelWithThumb
 
 logger = get_logger('gui.main_ui')
 
@@ -86,6 +86,7 @@ class MainWindow(QMainWindow):
         self.__playlist_maker = None
         self.__media_watcher_thread = None
         self.__media_watcher = None
+        self.__qt_nam = QtNetwork.QNetworkAccessManager()
         # Variable to store data for class use
         self.__users = []
         self.__parsing_queue = queue.Queue()
@@ -155,6 +156,7 @@ class MainWindow(QMainWindow):
         self.btn_progress_clear_complete.clicked.connect(self.rem_complete_from_table)
         self.btn_search_download_playlists.clicked.connect(lambda x, cat="playlists": self.__mass_action_dl(cat))
         self.btn_search_filter_toggle.clicked.connect(lambda toggle: self.group_search_items.show() if self.group_search_items.isHidden() else self.group_search_items.hide())
+        self.btn_search_filter_toggle.clicked.connect(lambda switch: self.btn_search_filter_toggle.setText("↓") if self.group_search_items.isHidden() else self.btn_search_filter_toggle.setText("↑"))
         # Connect checkbox state change signals
         self.inp_create_playlists.stateChanged.connect(self.__m3u_maker_set)
         self.inp_enable_spot_watch.stateChanged.connect(self.__media_watcher_set)
@@ -169,7 +171,7 @@ class MainWindow(QMainWindow):
         tbl_sessions_header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         # Search results table
         tbl_search_results_headers = self.tbl_search_results.horizontalHeader()
-        tbl_search_results_headers.setSectionResizeMode(0, QHeaderView.Stretch)
+        tbl_search_results_headers.setSectionResizeMode(0, QHeaderView.Interactive)
         tbl_search_results_headers.setSectionResizeMode(1, QHeaderView.Stretch)
         tbl_search_results_headers.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         tbl_search_results_headers.setSectionResizeMode(3, QHeaderView.ResizeToContents)
@@ -619,12 +621,26 @@ class MainWindow(QMainWindow):
         btn.setText(btn_text.strip())
         btn.clicked.connect(lambda x, q_data=queue_data: self.__parsing_queue.put(q_data))
         btn.setMinimumHeight(30)
+
+
         rows = self.tbl_search_results.rowCount()
+        tbl_search_results_headers = self.tbl_search_results.horizontalHeader()
         self.tbl_search_results.insertRow(rows)
-        self.tbl_search_results.setItem(rows, 0, QTableWidgetItem(item_name.rstrip()))
-        self.tbl_search_results.setItem(rows, 1, QTableWidgetItem(item_by.strip()))
-        self.tbl_search_results.setItem(rows, 2, QTableWidgetItem(item_type.strip()))
+        self.tbl_search_results.setRowHeight(rows, 60)
+        self.tbl_search_results.setCellWidget(rows, 0, LabelWithThumb(queue_data['data']['thumb_url'],
+                                                                      item_name.strip(),
+                                                                      self.__qt_nam,
+                                                                      thumb_enabled=config.get('show_search_thumbails'),
+                                                                      parent=self))
+        c1item = QTableWidgetItem(item_by.strip())
+        c1item.setToolTip(item_by.strip())
+        self.tbl_search_results.setItem(rows, 1, c1item)
+        c2item = QTableWidgetItem(item_type.strip())
+        c2item.setToolTip(item_type.strip())
+        self.tbl_search_results.setItem(rows, 2, c2item)
+        btn.setToolTip(f"Download {item_type.strip()} '{item_name.strip()}' by '{item_by.strip()}'. ")
         self.tbl_search_results.setCellWidget(rows, 3, btn)
+        tbl_search_results_headers.resizeSection(0, 450)
         return True
 
     def __populate_search_results(self, data):
@@ -639,9 +655,18 @@ class MainWindow(QMainWindow):
                 item_name, item_by = name_by_from_sdata(d_key, item)
                 if item_name is None and item_by is None:
                     continue
+                if d_key.lower() == "tracks":
+                    thumb_dict = item['album']['images']
+                else:
+                    thumb_dict = item['images']
                 queue_data = {'media_type': d_key[0:-1], 'media_id': item['id'],
                               'data': {
-                                  'media_title': item_name.replace("[ 18+ ]", "")
+                                  'media_title': item_name.replace("[ 18+ ]", ""),
+                                  'thumb_url': get_thumbnail(thumb_dict,
+                                                             preferred_size=config.get('search_thumb_height')^2
+                                                             ).replace(
+                                      'https', 'http'
+                                  )
                               }}
                 tmp_dl_val = self.inp_tmp_dl_root.text().strip()
                 if self.__advanced_visible and tmp_dl_val != "" and os.path.isdir(tmp_dl_val):

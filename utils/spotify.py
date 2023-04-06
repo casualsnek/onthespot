@@ -262,9 +262,13 @@ def get_show_episodes(session, show_id_str):
 def get_thumbnail(image_dict, preferred_size=22500):
     images = {}
     for image in image_dict:
-        images[image['height'] * image['width']] = image['url']
+        try:
+            images[image['height'] * image['width']] = image['url']
+        except TypeError:
+            # Some playlist and media item do not have cover images
+            pass
     available_sizes = sorted(images)
     for size in available_sizes:
         if size >= preferred_size:
             return images[size]
-    return images[available_sizes[-1]]
+    return images[available_sizes[-1]] if len(available_sizes) > 0 else ""
