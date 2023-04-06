@@ -10,7 +10,6 @@ import re
 from runtimedata import get_logger
 from librespot.audio.decoders import AudioQuality
 
-
 logger = get_logger("spotutils")
 requests.adapters.DEFAULT_RETRIES = 10
 
@@ -217,7 +216,7 @@ def get_song_info(session, song_id):
         artists.append(sanitize_data(data['name']))
     album_name = sanitize_data(info['tracks'][0]['album']["name"])
     name = sanitize_data(info['tracks'][0]['name'])
-    image_url = info['tracks'][0]['album']['images'][len(info['tracks'][0]['album']['images'])-1]['url']
+    image_url = get_thumbnail(info['tracks'][0]['album']['images'], preferred_size=640000)
     release_year = info['tracks'][0]['album']['release_date'].split("-")[0]
     disc_number = info['tracks'][0]['disc_number']
     track_number = info['tracks'][0]['track_number']
@@ -258,3 +257,14 @@ def get_show_episodes(session, show_id_str):
             break
 
     return episodes
+
+
+def get_thumbnail(image_dict, preferred_size=22500):
+    images = {}
+    for image in image_dict:
+        images[image['height'] * image['width']] = image['url']
+    available_sizes = sorted(images)
+    for size in available_sizes:
+        if size >= preferred_size:
+            return images[size]
+    return images[available_sizes[-1]]
