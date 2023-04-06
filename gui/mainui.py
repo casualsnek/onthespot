@@ -613,7 +613,7 @@ class MainWindow(QMainWindow):
         self.__parsing_queue.put(queue_item)
         if not hide_dialog:
             self.__splash_dialog.run(
-                f"The {media_type.title()} is being parsed and will be added to download queue shortly ! !")
+                f"The {media_type.title()} is being parsed and will be added to download queue shortly !")
         return True
 
     def __insert_search_result_row(self, btn_text, item_name, item_by, item_type, queue_data):
