@@ -58,7 +58,7 @@ class DownloadWorker(QObject):
                                                                   disc_number=disc_number,
                                                                   track_number=track_number,
                                                                   spotid=scraped_song_id
-                                                                  ) + "." + config.get("media_format")
+                                                                  ) + "." + config.get("media_format") if not config.get("force_raw") else "ogg"
             if not extra_path_as_root:
                 filename = os.path.join(config.get("download_root"), extra_paths, song_name)
             else:
@@ -76,7 +76,7 @@ class DownloadWorker(QObject):
             else:
                 if os.path.isfile(filename) and os.path.getsize(filename) and skip_existing_file:
                     self.progress.emit([trk_track_id_str, "Already exists", [100, 100],
-                                        filename, f'{name} [{_artist} - {album_name}:{release_year}].mp3'])
+                                        filename, f'{name} [{_artist} - {album_name}:{release_year}].f{config.get("media_format")}'])
                     logger.info(f"File already exists, Skipping download for track by id '{trk_track_id_str}'")
                     return True
                 else:
@@ -136,7 +136,7 @@ class DownloadWorker(QObject):
                         set_music_thumbnail(filename, image_url)
 
                         self.progress.emit([trk_track_id_str, "Downloaded", [100, 100],
-                                            filename, f'{name} [{_artist} - {album_name}:{release_year}].mp3'])
+                                            filename, f'{name} [{_artist} - {album_name}:{release_year}].f{config.get("media_format")}'])
 
                         logger.info(f"Downloaded track by id '{trk_track_id_str}'")
                         if config.get('inp_enable_lyrics'):
@@ -157,7 +157,7 @@ class DownloadWorker(QObject):
                     else:
                         logger.info(f"Downloaded track by id '{trk_track_id_str}', in raw mode")
                         self.progress.emit([trk_track_id_str, "Downloaded", [100, 100],
-                                            filename, f'{name} [{_artist} - {album_name}:{release_year}].mp3'])
+                                            filename, f'{name} [{_artist} - {album_name}:{release_year}].f{config.get("media_format")}'])
                         return True
         except queue.Empty:
             if os.path.exists(filename):
