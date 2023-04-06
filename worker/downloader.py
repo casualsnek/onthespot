@@ -71,15 +71,13 @@ class DownloadWorker(QObject):
             if not is_playable:
                 logger.error(f"Track is unavailable, track id '{trk_track_id_str}'")
                 self.progress.emit([trk_track_id_str, "Unavailable", [0, 100]])
-                self.__last_cancelled = True
+                unavailable.add(trk_track_id_str)
                 return False
             else:
                 if os.path.isfile(filename) and os.path.getsize(filename) and skip_existing_file:
                     self.progress.emit([trk_track_id_str, "Already exists", [100, 100],
                                         filename, f'{name} [{_artist} - {album_name}:{release_year}].mp3'])
-                    unavailable.add(trk_track_id_str)
                     logger.info(f"File already exists, Skipping download for track by id '{trk_track_id_str}'")
-                    self.__last_cancelled = True
                     return True
                 else:
                     if track_id_str != scraped_song_id:
