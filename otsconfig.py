@@ -39,7 +39,8 @@ class Config:
             "disable_bulk_dl_notices": True,
             "inp_enable_lyrics": True,
             "only_synced_lyrics": False,
-            'create_m3u_playlists': False,
+            "create_m3u_playlists": False,
+            "ffmpeg_args": "",
             "accounts": []
         }
         if os.path.isfile(self.__cfg_path):

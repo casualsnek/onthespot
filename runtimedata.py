@@ -3,7 +3,7 @@ from otsconfig import config
 import sys, os
 import logging
 from logging.handlers import RotatingFileHandler
-from pydub import AudioSegment
+
 
 log_formatter = logging.Formatter(
     '[%(asctime)s :: %(pathname)s -> %(lineno)s:%(funcName)20s() :: %(levelname)s] -> %(message)s'

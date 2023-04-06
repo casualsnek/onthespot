@@ -1,11 +1,12 @@
+import subprocess
 from exceptions import *
 import requests.adapters
 from otsconfig import config
-from runtimedata import AudioSegment
 import requests
 import json
 import music_tag
 import os
+from pathlib import Path
 import re
 from runtimedata import get_logger
 from librespot.audio.decoders import AudioQuality
@@ -125,17 +126,16 @@ def get_album_tracks(session, album_id):
 
 
 def convert_audio_format(filename, quality):
-    logger.info(f"Audiosegment media at '{filename}'")
     if os.path.isfile(os.path.abspath(filename)):
-        raw_audio = AudioSegment.from_file(os.path.abspath(filename), format="ogg",
-                                           frame_rate=44100, channels=2, sample_width=2)
-        if quality == AudioQuality.VERY_HIGH:
-            bitrate = "320k"
-        else:
-            bitrate = "160k"
-        logger.info(f"Export media at '{filename}'")
-        out_file = raw_audio.export(os.path.abspath(filename), format=config.get("media_format"), bitrate=bitrate)
-        out_file.close()
+        target_path = Path(filename)
+        ext = ".exe" if os.name == "nt" else ""
+        bitrate = "320k" if quality == AudioQuality.VERY_HIGH else "160k"
+        temp_name = os.path.join(target_path.parent, ".~"+target_path.stem+".ogg")
+        os.rename(filename, temp_name)
+        subprocess.check_call(
+            f"ffmpeg{ext} -i '{temp_name}' -ar 44100 -ac 2 -b:a {bitrate} {config.get('ffmpeg_args').strip()} '{filename}'",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
+        os.remove(temp_name)
     else:
         raise FileNotFoundError
 
