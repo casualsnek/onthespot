@@ -85,6 +85,8 @@ class Config:
 
     def update(self):
         os.makedirs(os.path.dirname(self.__cfg_path), exist_ok=True)
+        for key in list(set(self.__template_data).difference(set(self.__config))):
+            self.set_(key, self.__template_data[key])
         with open(self.__cfg_path, "w") as cf:
             cf.write(json.dumps(self.__config))
 
