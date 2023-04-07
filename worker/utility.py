@@ -61,7 +61,7 @@ class ParsingQueueProcessor(QObject):
     def enqueue_tracks(self, track_list, enqueue_part_cfg, log_id='', item_type=''):
         for track in track_list:
             logger.info(f'PQP parsing {log_id} <-> track item: {track["name"]}:{track["id"]}')
-            exp = '[ 18+ ]' if track['explicit'] else ''
+            exp = '[ E ]' if track['explicit'] else ''
             self.enqueue.emit(
                 {
                     'item_id': track['id'],
