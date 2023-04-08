@@ -133,7 +133,7 @@ def convert_audio_format(filename, quality):
         temp_name = os.path.join(target_path.parent, ".~"+target_path.stem+".ogg")
         os.rename(filename, temp_name)
         subprocess.check_call(
-            f"ffmpeg{ext} -i '{temp_name}' -ar 44100 -ac 2 -b:a {bitrate} {config.get('ffmpeg_args').strip()} '{filename}'",
+            f"ffmpeg{ext} -i \"{temp_name}\" -ar 44100 -ac 2 -b:a {bitrate} {config.get('ffmpeg_args').strip()} \"{filename}\"",
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
         os.remove(temp_name)
     else:
