@@ -17,11 +17,13 @@ class PlayListMaker(QObject):
     def run(self):
         logger.info('Playlist m3u8 builder is running....')
         while not self.__stop:
-            ddc = set(downloaded_data.keys()).difference(unavailable)
+            downloaded_and_available = set(downloaded_data.keys()).difference(unavailable)
             for play_id in list(playlist_m3u_queue.keys()):
                 logger.info(f'Playlist m3u8 checking ID {play_id}')
-                if set(playlist_m3u_queue[play_id]['tracks']).intersection(ddc) == set(
-                        playlist_m3u_queue[play_id]['tracks']):
+                # Remove unavailable tracks from playlist items and see if all of its item are available in
+                # downloaded_and_available set
+                all_downloadable_in_playlist = set(playlist_m3u_queue[play_id]['tracks']).difference(unavailable)
+                if all_downloadable_in_playlist.issubset(downloaded_and_available):
                     logger.info(f'Playlist {play_id} has all items ready, making m3u8 playlist at: '
                                 f'{{play_queue[play_id]["filename"]}}!')
                     # Write the m3u8 header
