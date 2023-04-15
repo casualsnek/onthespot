@@ -85,7 +85,7 @@ def get_tracks_from_playlist(session, playlist_id):
 
 
 def sanitize_data(value):
-    sanitize = ["\\", "/", ":", "*", "?", "'", "<", ">", '"']
+    sanitize = ["\\", "/", ":", "*", "?", "'", "<", ">", '"', '.']
     for i in sanitize:
         value = value.replace(i, "")
     return value.replace("|", "-")
