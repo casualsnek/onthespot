@@ -84,11 +84,21 @@ def get_tracks_from_playlist(session, playlist_id):
     return songs
 
 
-def sanitize_data(value):
-    sanitize = ["\\", "/", ":", "*", "?", "'", "<", ">", '"', '.']
+
+def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
+    sanitize = [':', '*', '?', "'", '<', '>', '"', '/', '.'] if os.name == 'nt' else []
+    if not allow_path_separators:
+        sanitize.append(os.path.sep)
     for i in sanitize:
-        value = value.replace(i, "")
-    return value.replace("|", "-")
+        value = value.replace(i, '')
+    if os.name == 'nt':
+        value = value.replace('|', '-')
+    else:
+        if escape_quotes and '"' in value:
+            # Since convert uses double quotes, we may need to escape if it exists in path, on windows double quotes is
+            # not allowed in path and will be removed
+            value = value.replace('"', '\\"')
+    return value
 
 
 def get_album_name(session, album_id):
@@ -121,19 +131,17 @@ def get_album_tracks(session, album_id):
 
         if len(resp['items']) < limit:
             break
-
     return songs
 
 
 def convert_audio_format(filename, quality):
     if os.path.isfile(os.path.abspath(filename)):
         target_path = Path(filename)
-        ext = ".exe" if os.name == "nt" else ""
         bitrate = "320k" if quality == AudioQuality.VERY_HIGH else "160k"
         temp_name = os.path.join(target_path.parent, ".~"+target_path.stem+".ogg")
         os.rename(filename, temp_name)
         subprocess.check_call(
-            f"ffmpeg{ext} -i \"{temp_name}\" -ar 44100 -ac 2 -b:a {bitrate} {config.get('ffmpeg_args').strip()} \"{filename}\"",
+            f"\"{config.get('_ffmpeg_bin_path')}\" -i \"{sanitize_data(temp_name, allow_path_separators=True, escape_quotes=True)}\" -ar 44100 -ac 2 -b:a {bitrate} {config.get('ffmpeg_args').strip()} \"{sanitize_data(filename, allow_path_separators=True, escape_quotes=True)}\"",
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
         os.remove(temp_name)
     else:

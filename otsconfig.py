@@ -14,7 +14,6 @@ class Config:
         self.__cfg_path = cfg_path
         self.platform = platform.system()
         self.ext_ = ".exe" if self.platform == "Windows" else ""
-        def_ff_path = os.path.dirname(os.path.abspath(which('ffmpeg'))) if which('ffmpeg') else ''
         self.__template_data = {
             "version": 0.4,
             "max_threads": 1,
@@ -34,7 +33,6 @@ class Config:
             "force_raw": False,
             "force_premium": False,
             "chunk_size": 50000,
-            "ffmpeg_bin_dir": def_ff_path,
             "recoverable_fail_wait_delay": 10,
             "disable_bulk_dl_notices": True,
             "inp_enable_lyrics": True,
@@ -54,19 +52,20 @@ class Config:
             self.__config = self.__template_data
         os.makedirs(self.get("download_root"), exist_ok=True)
         os.makedirs(os.path.dirname(self.get("log_file")), exist_ok=True)
-        # Look up and try to fix ffmpeg issues
-        if not os.path.isfile(os.path.join(self.get('ffmpeg_bin_dir'), 'ffmpeg' + self.ext_)):
-            print('FFMPEG not found in default path: ', os.path.join(self.get('ffmpeg_bin_dir'), 'ffmpeg' + self.ext_))
-            app_root = os.path.dirname(os.path.realpath(__file__))
-            local_ff_path = os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)
-            print('Trying to use local/embedded ffmpeg at: ', app_root)
-            if os.path.isfile(local_ff_path):
-                print('Using binaries at : ', local_ff_path)
-                os.environ['PATH'] = os.path.dirname(local_ff_path) + os.pathsep + os.environ['PATH']
-            else:
-                print('Local ffmpeg not found at: ', local_ff_path)
+
+        # Set ffmpeg path
+        app_root = os.path.dirname(os.path.realpath(__file__))
+        if os.path.isfile(os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)):
+            # Try embedded binary at first
+            self.set_('_ffmpeg_bin_path', os.path.abspath(os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)))
+        elif os.path.isfile(os.path.join(self.get('ffmpeg_bin_dir'), 'ffmpeg' + self.ext_ )):
+            # Now try user defined binary path
+            self.set_('_ffmpeg_bin_path', os.path.abspath(os.path.join(self.get('ffmpeg_bin_dir'), 'ffmpeg' + self.ext_ )))
         else:
-            print('Using ffmpeg at :', os.path.join(self.get('ffmpeg_bin_dir'), 'ffmpeg' + self.ext_))
+            # Try system binaries as fallback
+            self.set_('_ffmpeg_bin_path',
+                      os.path.dirname(os.path.abspath(which('ffmpeg'))) if which('ffmpeg') else 'ffmpeg'+self.ext_)
+        print("Using ffmpeg binary at: ", self.get('_ffmpeg_bin_path'))
 
     def get(self, key, default=None):
         if key in self.__config:
@@ -86,7 +85,8 @@ class Config:
     def update(self):
         os.makedirs(os.path.dirname(self.__cfg_path), exist_ok=True)
         for key in list(set(self.__template_data).difference(set(self.__config))):
-            self.set_(key, self.__template_data[key])
+            if not key.startswith('_'):
+                self.set_(key, self.__template_data[key])
         with open(self.__cfg_path, "w") as cf:
             cf.write(json.dumps(self.__config))
 
