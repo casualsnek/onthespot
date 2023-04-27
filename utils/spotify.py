@@ -159,7 +159,7 @@ def conv_artist_format(artists):
     return formatted[:-2]
 
 
-def set_audio_tags(filename, artists, name, album_name, release_year, disc_number, track_number, metadata, track_id_str):
+def set_audio_tags(filename, metadata, track_id_str):
     logger.info(
         f"Setting tags for audio media at '{filename}', mediainfo -> '{metadata}'")
     tags = music_tag.load_file(filename)
