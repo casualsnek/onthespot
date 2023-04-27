@@ -1,6 +1,8 @@
 import os
 import platform
 import time
+
+import requests
 from librespot.core import Session
 import re
 from runtimedata import get_logger
@@ -8,13 +10,41 @@ from utils.spotify import search_by_term
 import subprocess
 import asyncio
 
-
 if platform.system() == "Windows":
     from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
 
-
 logger = get_logger("utils")
 media_tracker_last_query = ''
+
+
+def re_init_session(session_pool: dict, session_uuid: str, wait_connectivity: bool = False,
+                    connectivity_test_url: str = 'https://spotify.com', timeout=60) -> bool:
+    start = int(time.time())
+    session_json_path = os.path.join(os.path.join(os.path.expanduser('~'), '.cache', 'casualOnTheSpot', 'sessions'),
+                                     f"ots_login_{session_uuid}.json")
+    if not os.path.isfile(session_json_path):
+        return False
+    if wait_connectivity:
+        status = 0
+        while status != 200 and int(time.time()) - start < timeout:
+            try:
+                r = requests.get(connectivity_test_url)
+                status = r.status_code
+                logger.info(f'Connectivity check done ! Status code "{status}" ')
+            except:
+                logger.info('Connectivity issue ! Waiting ... ')
+        if status == 0:
+            return False
+    try:
+        config = Session.Configuration.Builder().set_stored_credential_file(session_json_path).build()
+        logger.debug("Session config created")
+        session = Session.Builder(conf=config).stored_file(session_json_path).create()
+        logger.debug("Session re init done")
+        session_pool[session_uuid] = session
+    except:
+        logger.error('Failed to re init session !')
+        return False
+    return True
 
 
 def login_user(username: str, password: str, login_data_dir: str, uuid: str) -> list:
@@ -56,7 +86,8 @@ def login_user(username: str, password: str, login_data_dir: str, uuid: str) -> 
             return [False, None, "", False, uuid]
 
 
-def remove_user(username: str, login_data_dir: str, config, session_uuid:str, thread_pool:dict, session_pool:dict) -> bool:
+def remove_user(username: str, login_data_dir: str, config, session_uuid: str, thread_pool: dict,
+                session_pool: dict) -> bool:
     logger.info(f"Removing user '{username[:4]}****@****.***' from saved entries, uuid {session_uuid}")
     # Try to stop the thread using this account
     if session_uuid in thread_pool.keys():

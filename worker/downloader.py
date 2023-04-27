@@ -1,15 +1,19 @@
 import os
 import queue
+import socket
 import subprocess
 import time
 import traceback
 from PyQt5.QtCore import QObject, pyqtSignal
 from librespot.audio.decoders import AudioQuality, VorbisOnlyAudioQuality
 from librespot.metadata import TrackId, EpisodeId
+from urllib3.exceptions import MaxRetryError, NewConnectionError
+
 from otsconfig import config
 from runtimedata import get_logger, cancel_list, failed_downloads, unavailable, session_pool
 from utils.spotify import check_premium, get_song_info, convert_audio_format, set_music_thumbnail, set_audio_tags, \
     get_episode_info, get_track_lyrics
+from utils.utils import re_init_session
 
 
 class DownloadWorker(QObject):
@@ -24,7 +28,8 @@ class DownloadWorker(QObject):
     __last_cancelled = False
     __stopped = False
 
-    def download_track(self, session, track_id_str, extra_paths="", force_album_format=False, extra_path_as_root=False, playlist_name='', playlist_owner='', playlist_desc=''):
+    def download_track(self, session, track_id_str, extra_paths="", force_album_format=False, extra_path_as_root=False,
+                       playlist_name='', playlist_owner='', playlist_desc=''):
         trk_track_id_str = track_id_str
         self.logger.debug(
             f"Downloading track by id '{track_id_str}', extra_paths: '{extra_paths}', "
@@ -56,7 +61,7 @@ class DownloadWorker(QObject):
                     playlist_name=playlist_name,
                     playlist_owner=playlist_owner,
                     playlist_desc=playlist_desc
-                    )
+                )
                 )
             song_name = config.get("track_name_formatter").format(
                 artist=_artist,
@@ -84,7 +89,8 @@ class DownloadWorker(QObject):
             else:
                 filename = os.path.join(os.path.abspath(extra_paths), song_name)
         except Exception:
-            self.logger.error(f"Metadata fetching failed for track by id '{trk_track_id_str}', {traceback.format_exc()}")
+            self.logger.error(
+                f"Metadata fetching failed for track by id '{trk_track_id_str}', {traceback.format_exc()}")
             self.progress.emit([trk_track_id_str, "Get metadata failed", None])
             return False
         try:
@@ -98,7 +104,8 @@ class DownloadWorker(QObject):
             else:
                 if os.path.isfile(filename) and os.path.getsize(filename) and skip_existing_file:
                     self.progress.emit([trk_track_id_str, "Already exists", [100, 100],
-                                        filename, f'{song_info["name"]} [{_artist} - {song_info["album_name"]}:{song_info["release_year"]}].f{config.get("media_format")}'])
+                                        filename,
+                                        f'{song_info["name"]} [{_artist} - {song_info["album_name"]}:{song_info["release_year"]}].f{config.get("media_format")}'])
                     self.logger.info(f"File already exists, Skipping download for track by id '{trk_track_id_str}'")
                     self.__last_cancelled = True
                     return True
@@ -122,7 +129,8 @@ class DownloadWorker(QObject):
                                 self.__last_cancelled = True
                                 return False
                             data = stream.input_stream.stream().read(_CHUNK_SIZE)
-                            self.logger.debug(f"Reading chunk of {_CHUNK_SIZE} bytes for track by id '{trk_track_id_str}'")
+                            self.logger.debug(
+                                f"Reading chunk of {_CHUNK_SIZE} bytes for track by id '{trk_track_id_str}'")
                             downloaded += len(data)
                             if len(data) != 0:
                                 file.write(data)
@@ -161,7 +169,7 @@ class DownloadWorker(QObject):
                     if config.get('inp_enable_lyrics'):
                         self.progress.emit([trk_track_id_str, "Getting Lyrics", None])
                         self.logger.info(f'Fetching lyrics for track id: {trk_track_id_str}, '
-                                    f'{config.get("only_synced_lyrics")}')
+                                         f'{config.get("only_synced_lyrics")}')
                         try:
                             lyrics = get_track_lyrics(session, trk_track_id_str, config.get('only_synced_lyrics'))
                             if lyrics:
@@ -175,7 +183,7 @@ class DownloadWorker(QObject):
                                 self.logger.info(f'lyrics saved for: {trk_track_id_str}')
                         except Exception:
                             self.logger.error(f'Could not get lyrics for {trk_track_id_str}, '
-                                         f'unexpected error: {traceback.format_exc()}')
+                                              f'unexpected error: {traceback.format_exc()}')
                     self.progress.emit([trk_track_id_str, "Downloaded", [100, 100],
                                         filename,
                                         f'{song_info["name"]} [{_artist} - {song_info["album_name"]}:{song_info["release_year"]}].f{config.get("media_format")}'])
@@ -214,7 +222,7 @@ class DownloadWorker(QObject):
             extra_paths = os.path.join(extra_paths, podcast_name)
         if podcast_name is None:
             self.progress.emit([episode_id_str, "Not Found", [0, 100]])
-            self.logger.error(f"Download faget_song_infoiled for episode by id '{episode_id_str}', Not found")
+            self.logger.error(f"Download failed for episode by id '{episode_id_str}', Not found")
             return False
         else:
             try:
@@ -228,7 +236,7 @@ class DownloadWorker(QObject):
                 _CHUNK_SIZE = config.get("chunk_size")
                 fail = 0
 
-                with open(os.path.join(podcast_path, extra_paths, + filename + ".wav"), 'wb') as file:
+                with open(os.path.join(podcast_path, extra_paths, filename + ".wav"), 'wb') as file:
                     while downloaded <= total_size:
                         data = stream.input_stream.stream().read(_CHUNK_SIZE)
                         downloaded += len(data)
@@ -246,7 +254,8 @@ class DownloadWorker(QObject):
                     self.progress.emit([episode_id_str, "Downloaded", [100, 100]])
                     return True
                 else:
-                    self.logger.error(f"Downloading failed for episode by id '{episode_id_str}', partial download failed !")
+                    self.logger.error(
+                        f"Downloading failed for episode by id '{episode_id_str}', partial download failed !")
                     self.progress.emit([episode_id_str, "Failed", [0, 100]])
                     return False
             except Exception:
@@ -268,25 +277,31 @@ class DownloadWorker(QObject):
                 attempt = attempt + 1
                 status = False
                 self.progress.emit([item['media_id'], "Downloading", None])
-                if item['media_type'] == "track":
-                    status = self.download_track(
-                        session=session_pool[self.__session_uuid],
-                        track_id_str=item['media_id'],
-                        extra_paths=item['extra_paths'],
-                        force_album_format=item['force_album_format'],
-                        extra_path_as_root=item['extra_path_as_root'],
-                        playlist_name=item['playlist_name'],
-                        playlist_owner=item['playlist_owner'],
-                        playlist_desc=item['playlist_desc'],
-                    )
-                elif item['media_type'] == "episode":
-                    status = self.download_episode(
-                        session=session_pool[self.__session_uuid],
-                        episode_id_str=item['media_id'],
-                        extra_paths=item['extra_paths'],
-                    )
-                else:
-                    attempt = 1000 + config.get("max_retries")
+                try:
+                    if item['media_type'] == "track":
+                        status = self.download_track(
+                            session=session_pool[self.__session_uuid],
+                            track_id_str=item['media_id'],
+                            extra_paths=item['extra_paths'],
+                            force_album_format=item['force_album_format'],
+                            extra_path_as_root=item['extra_path_as_root'],
+                            playlist_name=item['playlist_name'],
+                            playlist_owner=item['playlist_owner'],
+                            playlist_desc=item['playlist_desc'],
+                        )
+                    elif item['media_type'] == "episode":
+                        status = self.download_episode(
+                            session=session_pool[self.__session_uuid],
+                            episode_id_str=item['media_id'],
+                            extra_paths=item['extra_paths'],
+                        )
+                    else:
+                        attempt = 1000 + config.get("max_retries")
+                except (OSError, queue.Empty, MaxRetryError, NewConnectionError, ConnectionError, socket.gaierror,
+                        ConnectionResetError):
+                    # Internet disconnected ?
+                    self.logger.error('DL failed.. Connection error ! Trying to re init parsing account session ! ')
+                    re_init_session(session_pool, self.__session_uuid, wait_connectivity=True, timeout=120)
 
                 if status is None:  # This needs to be cleaned up, current versions retry for False too
                     if attempt < config.get("max_retries"):  # 2 < 2

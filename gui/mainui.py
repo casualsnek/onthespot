@@ -7,7 +7,7 @@ from PyQt5.QtCore import QThread
 from PyQt5.QtWidgets import QMainWindow, QHeaderView, QLabel, QPushButton, QProgressBar, QTableWidgetItem, QFileDialog
 from exceptions import EmptySearchResultException
 from utils.spotify import search_by_term, get_thumbnail
-from utils.utils import name_by_from_sdata, login_user, remove_user, get_url_data
+from utils.utils import name_by_from_sdata, login_user, remove_user, get_url_data, re_init_session
 from worker import LoadSessions, ParsingQueueProcessor, MediaWatcher, PlayListMaker, DownloadWorker
 from .dl_progressbtn import DownloadActionsButtons
 from .minidialog import MiniDialog
@@ -15,6 +15,7 @@ from otsconfig import config
 from runtimedata import get_logger, download_queue, downloads_status, downloaded_data, failed_downloads, cancel_list, \
     session_pool, thread_pool
 from .thumb_listitem import LabelWithThumb
+from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 logger = get_logger('gui.main_ui')
 
@@ -554,6 +555,7 @@ class MainWindow(QMainWindow):
 
     def __get_search_results(self):
         search_term = self.inp_search_term.text().strip()
+        results = None
         if search_term.startswith('https://'):
             logger.info(f"Search clicked with value with url {search_term}")
             self.__download_by_url(search_term)
@@ -580,8 +582,14 @@ class MainWindow(QMainWindow):
                 filters.append('artist')
             selected_uuid = config.get('accounts')[ config.get('parsing_acc_sn') - 1 ][3]
             session = session_pool[ selected_uuid ]
-            results = search_by_term(session, search_term,
+            try:
+                results = search_by_term(session, search_term,
                                      config.get('max_search_results'), content_types=filters)
+            except (OSError, queue.Empty, MaxRetryError, NewConnectionError, ConnectionError):
+                # Internet disconnected ?
+                logger.error('Search failed Connection error ! Trying to re init parsing account session ! ')
+                re_init_session(session_pool, selected_uuid, wait_connectivity=False)
+                return None
             self.__populate_search_results(results)
             self.__last_search_data = results
         except EmptySearchResultException:
