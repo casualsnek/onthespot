@@ -33,7 +33,7 @@ class LoadSessions(QObject):
                 self.__users.append([account[0], 'Premium' if login[3] else 'Free', 'OK', account[3]])
             else:
                 self.progress.emit(f'Failed to create session for:\n{account[0]} (UUID: {account[3]})  [{c}/{t}] ', True)
-                self.__users.append([account[0], "LoginERROR", "ERROR"])
+                self.__users.append([account[0], "LoginERROR", "ERROR", account[3]])
         self.finished.emit()
 
     def setup(self, users):

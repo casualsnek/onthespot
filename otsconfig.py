@@ -3,6 +3,7 @@ import json
 import platform
 import shutil
 from shutil import which
+import uuid
 
 
 class Config:
@@ -38,7 +39,7 @@ class Config:
             "only_synced_lyrics": False,
             "create_m3u_playlists": False,
             "ffmpeg_args": "",
-            "show_search_thumbails": 1,
+            "show_search_thumbnails": 1,
             "search_thumb_height": 60,
             "accounts": []
         }
@@ -57,15 +58,17 @@ class Config:
         if os.path.isfile(os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)):
             # Try embedded binary at first
             print('FFMPEG found in package !')
-            self.set_('_ffmpeg_bin_path', os.path.abspath(os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)))
-        elif os.path.isfile(os.path.join(self.get('ffmpeg_bin_dir', '.'), 'ffmpeg' + self.ext_ )):
+            self.set_('_ffmpeg_bin_path',
+                      os.path.abspath(os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)))
+        elif os.path.isfile(os.path.join(self.get('ffmpeg_bin_dir', '.'), 'ffmpeg' + self.ext_)):
             # Now try user defined binary path
             print('FFMPEG found at config:ffmpeg_bin_dir !')
-            self.set_('_ffmpeg_bin_path', os.path.abspath(os.path.join(self.get('ffmpeg_bin_dir', '.'), 'ffmpeg' + self.ext_ )))
+            self.set_('_ffmpeg_bin_path',
+                      os.path.abspath(os.path.join(self.get('ffmpeg_bin_dir', '.'), 'ffmpeg' + self.ext_)))
         else:
             # Try system binaries as fallback
             print('Attempting to use system ffmpeg binary !')
-            self.set_('_ffmpeg_bin_path', os.path.abspath(which('ffmpeg')) if which('ffmpeg') else 'ffmpeg'+self.ext_ )
+            self.set_('_ffmpeg_bin_path', os.path.abspath(which('ffmpeg')) if which('ffmpeg') else 'ffmpeg' + self.ext_)
         print("Using ffmpeg binary at: ", self.get('_ffmpeg_bin_path'))
 
     def get(self, key, default=None):
@@ -96,6 +99,26 @@ class Config:
         with open(self.__cfg_path, "w") as cf:
             cf.write(json.dumps(self.__template_data, indent=4))
         self.__config = self.__template_data
+
+    def __run_migration(self):
+        while self.get('version') < self.version:
+            # Migrate v0.4 to v0.5
+            if self.get('version') == 0.4:
+                accounts = self.__config['accounts'].copy()
+                new_accounts = []
+                for account in accounts:
+                    # Assign UUID
+                    acc_uuid = uuid.uuid4()
+                    session_dir = os.path.join(os.path.expanduser('~'), '.cache', 'casualOnTheSpot', 'sessions')
+                    new_accounts.append([account[0], account[1], account[2], acc_uuid])
+                    # Move saved sessions
+                    os.rename(
+                        os.path.join(session_dir, f"{account[0]}_GUZpotifylogin.json"),
+                        os.path.join(session_dir, f"ots_login_{acc_uuid}.json")
+                    )
+                self.set_('accounts', new_accounts)
+                self.set_('version', 0.5)
+                self.update()
 
 
 config = Config()

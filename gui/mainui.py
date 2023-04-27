@@ -362,6 +362,7 @@ class MainWindow(QMainWindow):
                         "Something went wrong while removing account with username '{}' !".format(account[0]))
 
     def __generate_users_table(self, userdata):
+
         # Clear the table
         while self.tbl_sessions.rowCount() > 0:
             self.tbl_sessions.removeRow(0)
@@ -633,7 +634,7 @@ class MainWindow(QMainWindow):
         self.tbl_search_results.setCellWidget(rows, 0, LabelWithThumb(queue_data['data']['thumb_url'],
                                                                       item_name.strip(),
                                                                       self.__qt_nam,
-                                                                      thumb_enabled=config.get('show_search_thumbails'),
+                                                                      thumb_enabled=config.get('show_search_thumbnails'),
                                                                       parent=self))
         c1item = QTableWidgetItem(item_by.strip())
         c1item.setToolTip(item_by.strip())
