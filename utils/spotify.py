@@ -243,6 +243,7 @@ def check_premium(session):
 
 def get_song_info(session, song_id):
     token = session.tokens().get("user-read-email")
+    print(token, song_id)
     uri = 'https://api.spotify.com/v1/tracks?ids=' + song_id + '&market=from_token'
     info = json.loads(requests.get(uri, headers={"Authorization": "Bearer %s" % token}).text)
     album_url = info['tracks'][0]['album']['href']
@@ -266,8 +267,10 @@ def get_song_info(session, song_id):
         'scraped_song_id': info['tracks'][0]['id'],
         'is_playable': info['tracks'][0]['is_playable'],
         'popularity': info['tracks'][0]['popularity'],
-        'isrc': info['tracks'][0]['external_ids']['isrc'],
-        'genre': rt_cache['REQurl'][album_url]['genres'],
+        'isrc': info['tracks'][0]['external_ids'].get('isrc', ''),
+        'genre': info['tracks'][0].get('genres', []),
+        # https://developer.spotify.com/documentation/web-api/reference/get-track
+        # List of genre is supposed to be here, genre from album API is deprecated
         'label': rt_cache['REQurl'][album_url]['label'],
         'copyrights':  [ holder['text'] for holder in rt_cache['REQurl'][album_url]['copyrights'] ],
         'explicit': info['tracks'][0]['explicit']
