@@ -243,13 +243,17 @@ def check_premium(session):
 
 def get_song_info(session, song_id):
     token = session.tokens().get("user-read-email")
-    print(token, song_id)
     uri = 'https://api.spotify.com/v1/tracks?ids=' + song_id + '&market=from_token'
     info = json.loads(requests.get(uri, headers={"Authorization": "Bearer %s" % token}).text)
     album_url = info['tracks'][0]['album']['href']
+    artist_url = info['tracks'][0]['artists'][0]['href']
     if album_url not in rt_cache['REQurl']:
         rt_cache['REQurl'][album_url] = json.loads(
             requests.get(album_url, headers={"Authorization": "Bearer %s" % token}).text
+        )
+    if artist_url not in rt_cache['REQurl']:
+        rt_cache['REQurl'][artist_url] = json.loads(
+            requests.get(artist_url, headers={"Authorization": "Bearer %s" % token}).text
         )
     artists = []
     for data in info['tracks'][0]['artists']:
@@ -268,9 +272,10 @@ def get_song_info(session, song_id):
         'is_playable': info['tracks'][0]['is_playable'],
         'popularity': info['tracks'][0]['popularity'],
         'isrc': info['tracks'][0]['external_ids'].get('isrc', ''),
-        'genre': info['tracks'][0].get('genres', []),
+        'genre': rt_cache['REQurl'][artist_url]['genres'],
         # https://developer.spotify.com/documentation/web-api/reference/get-track
-        # List of genre is supposed to be here, genre from album API is deprecated
+        # List of genre is supposed to be here, genre from album API is deprecated and it always seems to be unavailable
+        # Use artist endpoint to get artist's genre instead
         'label': rt_cache['REQurl'][album_url]['label'],
         'copyrights':  [ holder['text'] for holder in rt_cache['REQurl'][album_url]['copyrights'] ],
         'explicit': info['tracks'][0]['explicit']
