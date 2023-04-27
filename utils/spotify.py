@@ -85,6 +85,7 @@ def get_tracks_from_playlist(session, playlist_id):
     return songs
 
 
+
 def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
     sanitize = ['*', '?', '\'', '<', '>', '"', '/'] if os.name == 'nt' else []
     if not allow_path_separators:
@@ -96,6 +97,7 @@ def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
         if value[1] == ":" and value[0].lower() in string.ascii_lowercase:
             # Beginning of win path like C:\, skip first column then remove all other colons
             value = value[:2] + value[2:].replace(':', '')
+        value = value.rstrip('.')
     else:
         if escape_quotes and '"' in value:
             # Since convert uses double quotes, we may need to escape if it exists in path, on windows double quotes is
