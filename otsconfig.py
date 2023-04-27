@@ -14,6 +14,7 @@ class Config:
         self.platform = platform.system()
         self.ext_ = ".exe" if self.platform == "Windows" else ""
         self.version = 0.5
+        print('OTS Version : ', self.version)
         self.__template_data = {
             "version": 0.5,
             "max_threads": 1,
@@ -50,6 +51,8 @@ class Config:
             with open(self.__cfg_path, "w") as cf:
                 cf.write(json.dumps(self.__template_data, indent=4))
             self.__config = self.__template_data
+        self.__run_migration()
+        print('Config version: ', self.__config['version'])
         os.makedirs(self.get("download_root"), exist_ok=True)
         os.makedirs(os.path.dirname(self.get("log_file")), exist_ok=True)
 
@@ -104,20 +107,25 @@ class Config:
         while self.get('version') < self.version:
             # Migrate v0.4 to v0.5
             if self.get('version') == 0.4:
+                print('Curent Config version : ', 0.4)
                 accounts = self.__config['accounts'].copy()
                 new_accounts = []
                 for account in accounts:
                     # Assign UUID
-                    acc_uuid = uuid.uuid4()
+                    acc_uuid = str(uuid.uuid4())
                     session_dir = os.path.join(os.path.expanduser('~'), '.cache', 'casualOnTheSpot', 'sessions')
                     new_accounts.append([account[0], account[1], account[2], acc_uuid])
                     # Move saved sessions
-                    os.rename(
-                        os.path.join(session_dir, f"{account[0]}_GUZpotifylogin.json"),
-                        os.path.join(session_dir, f"ots_login_{acc_uuid}.json")
-                    )
+                    try:
+                        os.rename(
+                            os.path.join(session_dir, f"{account[0]}_GUZpotifylogin.json"),
+                            os.path.join(session_dir, f"ots_login_{acc_uuid}.json")
+                        )
+                    except:
+                        print('Sessions could not be moved')
                 self.set_('accounts', new_accounts)
                 self.set_('version', 0.5)
+                print('Config migrated to version : ', 0.5)
                 self.update()
 
 
