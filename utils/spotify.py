@@ -179,7 +179,7 @@ def set_audio_tags(filename, artists, name, album_name, release_year, disc_numbe
         elif key == 'lyrics':
             tags['lyrics'] = value
         elif key == 'genre':
-            tags['genre'] = value
+            tags['genre'] = conv_artist_format(value)
         elif key in ['total_tracks', 'totaltracks']:
             tags['totaltracks'] = value
         elif key in ['total_discs', 'totaldiscs', 'total_disks', 'totaldisks']:
@@ -262,7 +262,7 @@ def get_song_info(session, song_id):
         'is_playable': info['tracks'][0]['is_playable'],
         'popularity': info['tracks'][0]['popularity'],
         'isrc': info['tracks'][0]['external_ids']['isrc'],
-        'genre': rt_cache['REQurl'][album_url]['generes'],
+        'genre': rt_cache['REQurl'][album_url]['genres'],
         'label': rt_cache['REQurl'][album_url]['label'],
         'copyrights':  [ holder['text'] for holder in rt_cache['REQurl'][album_url]['copyrights'] ],
         'explicit': info['tracks'][0]['explicit']

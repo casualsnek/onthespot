@@ -159,7 +159,7 @@ class DownloadWorker(QObject):
                             lyrics = get_track_lyrics(session, trk_track_id_str, config.get('only_synced_lyrics'))
                             if lyrics:
                                 self.logger.info(f'Found lyrics for: {trk_track_id_str}, writing...')
-                                if config.get('use_lrc_file'):
+                                if config.get('use_lrc_file', 1):
                                     with open(filename[0:-len(config.get('media_format'))] + 'lrc', 'w',
                                               encoding='utf-8') as f:
                                         f.write(lyrics)
