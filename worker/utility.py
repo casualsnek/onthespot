@@ -213,8 +213,8 @@ class ParsingQueueProcessor(QObject):
                 if not item['data'].get('hide_dialogs', False):
                     self.progress.emit(f"Added playlist '{item_name}' by {owner['display_name']} to download queue !")
             elif item['media_type'] == 'track':
-                artists, album_name, name, image_url, release_year, disc_number, track_number, scraped_song_id, \
-                    is_playable = get_song_info(session, item['media_id'])
+                song_info = get_song_info(session, item['media_id'])
+                name = song_info['name']
                 if not item['data'].get('hide_dialogs', False):
                     self.progress.emit(f"Adding track '{name}' to download queue !")
                 enqueue_part_cfg = {
@@ -223,9 +223,9 @@ class ParsingQueueProcessor(QObject):
                 }
                 track_obj = {
                     'id': item['media_id'],
-                    'name': name,
+                    'name': song_info['name'],
                     'explicit': False,
-                    'artists': [{'name': name} for name in artists]
+                    'artists': [{'name': name} for name in song_info['artists']]
                 }
                 self.enqueue_tracks([track_obj], enqueue_part_cfg=enqueue_part_cfg,
                                     log_id=f'{name}:{item["media_id"]}', item_type="Track")
