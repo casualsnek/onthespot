@@ -74,6 +74,9 @@ class ParsingQueueProcessor(QObject):
                         'media_type': 'track',
                         'extra_paths': enqueue_part_cfg.get('extra_paths', ''),
                         'extra_path_as_root': bool(enqueue_part_cfg.get('dl_path_override', False)),
+                        'playlist_name': enqueue_part_cfg.get('playlist_name', ''),
+                        'playlist_owner': enqueue_part_cfg.get('playlist_owner', ''),
+                        'playlist_desc': enqueue_part_cfg.get('playlist_desc', '')
                     }
                 }
             )
@@ -192,7 +195,10 @@ class ParsingQueueProcessor(QObject):
                 playlist_songs = get_tracks_from_playlist(session,
                                                           item['media_id'])
                 enqueue_part_cfg = {'extra_paths': item['data'].get('dl_path', ''),
-                                    'dl_path_override': True if item['data'].get('dl_path', None) else False
+                                    'dl_path_override': True if item['data'].get('dl_path', None) else False,
+                                    'playlist_name': name,
+                                    'playlist_owner': owner,
+                                    'playlist_desc': description
                                     }
                 if enable_m3u:
                     playlist_m3u_queue[item['media_id']] = {

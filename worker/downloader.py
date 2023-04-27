@@ -24,7 +24,7 @@ class DownloadWorker(QObject):
     __last_cancelled = False
     __stopped = False
 
-    def download_track(self, session, track_id_str, extra_paths="", force_album_format=False, extra_path_as_root=False):
+    def download_track(self, session, track_id_str, extra_paths="", force_album_format=False, extra_path_as_root=False, playlist_name='', playlist_owner='', playlist_desc=''):
         trk_track_id_str = track_id_str
         self.logger.debug(
             f"Downloading track by id '{track_id_str}', extra_paths: '{extra_paths}', "
@@ -52,7 +52,10 @@ class DownloadWorker(QObject):
                     album=song_info['album_name'],
                     genre=song_info['genre'],
                     label=song_info['label'],
-                    trackcount=song_info['total_tracks']
+                    trackcount=song_info['total_tracks'],
+                    playlist_name=playlist_name,
+                    playlist_owner=playlist_owner,
+                    playlist_desc=playlist_desc
                     )
                 )
             song_name = config.get("track_name_formatter").format(
@@ -66,7 +69,11 @@ class DownloadWorker(QObject):
                 genre=song_info['genre'],
                 label=song_info['label'],
                 explicit='Explicit' if song_info['explicit'] else '',
-                trackcount=song_info['total_tracks']
+                trackcount=song_info['total_tracks'],
+                disccount=song_info['total_discs'],
+                playlist_name=playlist_name,
+                playlist_owner=playlist_owner,
+                playlist_desc=playlist_desc
             )
             if not config.get("force_raw"):
                 song_name = song_name + "." + config.get("media_format")
@@ -163,7 +170,8 @@ class DownloadWorker(QObject):
                                     with open(filename[0:-len(config.get('media_format'))] + 'lrc', 'w',
                                               encoding='utf-8') as f:
                                         f.write(lyrics)
-                                set_audio_tags(filename, {'lyrics': lyrics}, trk_track_id_str)
+                                if config.get('embed_lyrics', 0):
+                                    set_audio_tags(filename, {'lyrics': lyrics}, trk_track_id_str)
                                 self.logger.info(f'lyrics saved for: {trk_track_id_str}')
                         except Exception:
                             self.logger.error(f'Could not get lyrics for {trk_track_id_str}, '
@@ -266,7 +274,11 @@ class DownloadWorker(QObject):
                         track_id_str=item['media_id'],
                         extra_paths=item['extra_paths'],
                         force_album_format=item['force_album_format'],
-                        extra_path_as_root=item['extra_path_as_root'])
+                        extra_path_as_root=item['extra_path_as_root'],
+                        playlist_name=item['playlist_name'],
+                        playlist_owner=item['playlist_owner'],
+                        playlist_desc=item['playlist_desc'],
+                    )
                 elif item['media_type'] == "episode":
                     status = self.download_episode(
                         session=session_pool[self.__session_uuid],

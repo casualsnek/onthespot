@@ -156,7 +156,7 @@ def conv_artist_format(artists):
     formatted = ""
     for artist in artists:
         formatted += artist + ", "
-    return formatted[:-2]
+    return formatted[:-2].strip()
 
 
 def set_audio_tags(filename, metadata, track_id_str):

@@ -297,7 +297,11 @@ class MainWindow(QMainWindow):
                 'extra_paths': item['dl_params']['extra_paths'],
                 'force_album_format': config.get('playlist_track_force_album_dir'),
                 'extra_path_as_root': item['dl_params']['extra_path_as_root'],
-                'm3u_filename': ''
+                'm3u_filename': '',
+                'playlist_name': item['dl_params'].get('playlist_name', ''),
+                'playlist_owner': item['dl_params'].get('playlist_owner', ''),
+                'playlist_desc': item['dl_params'].get('playlist_desc', '')
+
             }
         )
         downloads_status[item['item_id']] = {
