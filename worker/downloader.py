@@ -218,6 +218,7 @@ class DownloadWorker(QObject):
         podcast_path = os.path.join(config.get("download_root"), config.get("podcast_subdir", "Podcasts"))
         quality = AudioQuality.HIGH
         podcast_name, episode_name = get_episode_info(session, episode_id_str)
+        skip_existing_file = True
         if extra_paths == "":
             extra_paths = os.path.join(extra_paths, podcast_name)
         if podcast_name is None:
@@ -235,8 +236,12 @@ class DownloadWorker(QObject):
                 downloaded = 0
                 _CHUNK_SIZE = config.get("chunk_size")
                 fail = 0
-
-                with open(os.path.join(podcast_path, extra_paths, filename + ".wav"), 'wb') as file:
+                file_path = os.path.join(podcast_path, extra_paths, filename + ".wav")
+                if os.path.isfile(file_path) and os.path.getsize(file_path) and skip_existing_file:
+                    self.logger.info(f"Episode by id '{episode_id_str}', already exists.. Skipping ")
+                    self.progress.emit([episode_id_str, "Downloaded", [100, 100], file_path, filename])
+                    return True
+                with open(file_path, 'wb') as file:
                     while downloaded <= total_size:
                         data = stream.input_stream.stream().read(_CHUNK_SIZE)
                         downloaded += len(data)
@@ -251,7 +256,7 @@ class DownloadWorker(QObject):
                             break
                 if downloaded >= total_size:
                     self.logger.info(f"Episode by id '{episode_id_str}', downloaded")
-                    self.progress.emit([episode_id_str, "Downloaded", [100, 100]])
+                    self.progress.emit([episode_id_str, "Downloaded", [100, 100], file_path, filename])
                     return True
                 else:
                     self.logger.error(
