@@ -9,6 +9,8 @@ import music_tag
 import os
 from pathlib import Path
 import re
+from PIL import Image
+from io import BytesIO
 from runtimedata import get_logger, rt_cache
 from librespot.audio.decoders import AudioQuality
 
@@ -193,10 +195,12 @@ def set_audio_tags(filename, metadata, track_id_str):
 
 def set_music_thumbnail(filename, image_url):
     logger.info(f"Set thumbnail for audio media at '{filename}' with '{image_url}'")
-    img = requests.get(image_url).content
+    img = Image.open(BytesIO(requests.get(image_url).content))
+    buf = BytesIO()
+    img.save(buf, format='png')
+    buf.seek(0)
     tags = music_tag.load_file(filename)
-    tags['artwork'] = img
-    tags['artwork'].first.mime = 'image/png'
+    tags['artwork'] = buf.read()
     tags.save()
 
 
