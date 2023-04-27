@@ -9,12 +9,11 @@ import music_tag
 import os
 from pathlib import Path
 import re
-from runtimedata import get_logger
+from runtimedata import get_logger, rt_cache
 from librespot.audio.decoders import AudioQuality
 
 logger = get_logger("spotutils")
 requests.adapters.DEFAULT_RETRIES = 10
-
 
 def get_artist_albums(session, artist_id):
     logger.info(f"Get albums for artist by id '{artist_id}'")
@@ -160,17 +159,33 @@ def conv_artist_format(artists):
     return formatted[:-2]
 
 
-def set_audio_tags(filename, artists, name, album_name, release_year, disc_number, track_number, track_id_str):
+def set_audio_tags(filename, artists, name, album_name, release_year, disc_number, track_number, metadata, track_id_str):
     logger.info(
-        f"Setting tags for audio media at '{filename}', mediainfo -> '{str(artists)}, {name}, {album_name}, "
-        f"{release_year}, {disc_number}, {track_number}, {track_id_str}' ")
+        f"Setting tags for audio media at '{filename}', mediainfo -> '{metadata}'")
     tags = music_tag.load_file(filename)
-    tags['artist'] = conv_artist_format(artists)
-    tags['tracktitle'] = name
-    tags['album'] = album_name
-    tags['year'] = release_year
-    tags['discnumber'] = disc_number
-    tags['tracknumber'] = track_number
+    for key, value in iter(metadata):
+        if key == 'artists':
+            tags['artist'] = conv_artist_format(value)
+        elif key in ['name', 'track_title', 'tracktitle']:
+            tags['tracktitle'] = value
+        elif key in ['album_name', 'album']:
+            tags['album'] = value
+        elif key in ['year', 'release_year']:
+            tags['year'] = value
+        elif key in ['discnumber', 'disc_number', 'disknumber', 'disk_number']:
+            tags['discnumber'] = value
+        elif key in ['track_number', 'tracknumber']:
+            tags['tracknumber'] = value
+        elif key == 'lyrics':
+            tags['lyrics'] = value
+        elif key == 'genre':
+            tags['genre'] = value
+        elif key in ['total_tracks', 'totaltracks']:
+            tags['totaltracks'] = value
+        elif key in ['total_discs', 'totaldiscs', 'total_disks', 'totaldisks']:
+            tags['totaldiscs'] = value
+        elif key == 'isrc':
+            tags['isrc'] = value
     tags['comment'] = 'id[spotify.com:track:' + track_id_str + ']'
     tags.save()
 
@@ -225,18 +240,34 @@ def get_song_info(session, song_id):
     token = session.tokens().get("user-read-email")
     uri = 'https://api.spotify.com/v1/tracks?ids=' + song_id + '&market=from_token'
     info = json.loads(requests.get(uri, headers={"Authorization": "Bearer %s" % token}).text)
+    album_url = info['tracks'][0]['album']['href']
+    if album_url not in rt_cache['REQurl']:
+        rt_cache['REQurl'][album_url] = json.loads(
+            requests.get(album_url, headers={"Authorization": "Bearer %s" % token}).text
+        )
     artists = []
     for data in info['tracks'][0]['artists']:
         artists.append(sanitize_data(data['name']))
-    album_name = sanitize_data(info['tracks'][0]['album']["name"])
-    name = sanitize_data(info['tracks'][0]['name'])
-    image_url = get_thumbnail(info['tracks'][0]['album']['images'], preferred_size=640000)
-    release_year = info['tracks'][0]['album']['release_date'].split("-")[0]
-    disc_number = info['tracks'][0]['disc_number']
-    track_number = info['tracks'][0]['track_number']
-    scraped_song_id = info['tracks'][0]['id']
-    is_playable = info['tracks'][0]['is_playable']
-    return artists, album_name, name, image_url, release_year, disc_number, track_number, scraped_song_id, is_playable
+    info = {
+        'artists': artists,
+        'album_name': sanitize_data(info['tracks'][0]['album']["name"]),
+        'name': sanitize_data(info['tracks'][0]['name']),
+        'image_url': get_thumbnail(info['tracks'][0]['album']['images'], preferred_size=640000),
+        'release_year': info['tracks'][0]['album']['release_date'].split("-")[0],
+        'disc_number': info['tracks'][0]['disc_number'],
+        'track_number': info['tracks'][0]['track_number'],
+        'total_tracks': info['tracks'][0]['album']['total_tracks'],
+        'total_discs': sorted([trk['disc_number'] for trk in rt_cache['REQurl'][album_url]['tracks']['items']])[-1],
+        'scraped_song_id': info['tracks'][0]['id'],
+        'is_playable': info['tracks'][0]['is_playable'],
+        'popularity': info['tracks'][0]['popularity'],
+        'isrc': info['tracks'][0]['external_ids']['isrc'],
+        'genre': rt_cache['REQurl'][album_url]['generes'],
+        'label': rt_cache['REQurl'][album_url]['label'],
+        'copyrights':  [ holder['text'] for holder in rt_cache['REQurl'][album_url]['copyrights'] ],
+        'explicit': info['tracks'][0]['explicit']
+    }
+    return info
 
 
 def get_episode_info(session, episode_id_str):

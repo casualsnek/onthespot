@@ -42,23 +42,32 @@ class DownloadWorker(QObject):
         if check_premium(session) or config.get('force_premium'):
             quality = AudioQuality.VERY_HIGH
         try:
-            artists, album_name, name, image_url, release_year, disc_number, track_number, \
-                scraped_song_id, is_playable = get_song_info(session, track_id_str)
-            _artist = artists[0]
+            song_info = get_song_info(session, track_id_str)
+            _artist = song_info['artists'][0]
             if force_album_format and extra_path_as_root is False:
                 # If prefix is true use artist / album directory formatter
-                extra_paths = os.path.join(config.get("album_name_formatter").format(artist=_artist,
-                                                                                     rel_year=release_year,
-                                                                                     album=album_name
-                                                                                     ))
-            song_name = config.get("track_name_formatter").format(artist=_artist,
-                                                                  album=album_name,
-                                                                  name=name,
-                                                                  rel_year=release_year,
-                                                                  disc_number=disc_number,
-                                                                  track_number=track_number,
-                                                                  spotid=scraped_song_id
-                                                                  )
+                extra_paths = os.path.join(config.get("album_name_formatter").format(
+                    artist=_artist,
+                    rel_year=song_info['release_year'],
+                    album=song_info['album_name'],
+                    genre=song_info['genre'],
+                    label=song_info['label'],
+                    trackcount=song_info['total_tracks']
+                    )
+                )
+            song_name = config.get("track_name_formatter").format(
+                artist=_artist,
+                album=song_info['album_name'],
+                name=song_info['name'],
+                rel_year=song_info['release_year'],
+                disc_number=song_info['disc_number'],
+                track_number=song_info['track_number'],
+                spotid=song_info['scraped_song_id'],
+                genre=song_info['genre'],
+                label=song_info['label'],
+                explicit='Explicit' if song_info['explicit'] else '',
+                trackcount=song_info['total_tracks']
+            )
             if not config.get("force_raw"):
                 song_name = song_name + "." + config.get("media_format")
             else:
@@ -72,7 +81,7 @@ class DownloadWorker(QObject):
             self.progress.emit([trk_track_id_str, "Get metadata failed", None])
             return False
         try:
-            if not is_playable:
+            if not song_info['is_playable']:
                 self.logger.error(f"Track is unavailable, track id '{trk_track_id_str}'")
                 self.progress.emit([trk_track_id_str, "Unavailable", [0, 100]])
                 unavailable.add(trk_track_id_str)
@@ -82,13 +91,13 @@ class DownloadWorker(QObject):
             else:
                 if os.path.isfile(filename) and os.path.getsize(filename) and skip_existing_file:
                     self.progress.emit([trk_track_id_str, "Already exists", [100, 100],
-                                        filename, f'{name} [{_artist} - {album_name}:{release_year}].f{config.get("media_format")}'])
+                                        filename, f'{song_info["name"]} [{_artist} - {song_info["album_name"]}:{song_info["release_year"]}].f{config.get("media_format")}'])
                     self.logger.info(f"File already exists, Skipping download for track by id '{trk_track_id_str}'")
                     self.__last_cancelled = True
                     return True
                 else:
-                    if track_id_str != scraped_song_id:
-                        track_id_str = scraped_song_id
+                    if track_id_str != song_info['scraped_song_id']:
+                        track_id_str = song_info['scraped_song_id']
 
                     track_id = TrackId.from_base62(track_id_str)
                     stream = session.content_feeder().load(
@@ -133,10 +142,9 @@ class DownloadWorker(QObject):
                         self.progress.emit([trk_track_id_str, "Converting", None])
                         convert_audio_format(filename, quality)
                         self.progress.emit([trk_track_id_str, "Writing metadata", None])
-                        set_audio_tags(filename, artists, name, album_name,
-                                       release_year, disc_number, track_number, trk_track_id_str)
+                        set_audio_tags(filename, song_info, trk_track_id_str)
                         self.progress.emit([trk_track_id_str, "Setting thumbnail", None])
-                        set_music_thumbnail(filename, image_url)
+                        set_music_thumbnail(filename, song_info['image_url'])
                     else:
                         self.logger.warning(
                             f"Force raw is disabled for track by id '{trk_track_id_str}', "
@@ -151,16 +159,18 @@ class DownloadWorker(QObject):
                             lyrics = get_track_lyrics(session, trk_track_id_str, config.get('only_synced_lyrics'))
                             if lyrics:
                                 self.logger.info(f'Found lyrics for: {trk_track_id_str}, writing...')
-                                with open(filename[0:-len(config.get('media_format'))] + 'lrc', 'w',
-                                          encoding='utf-8') as f:
-                                    f.write(lyrics)
+                                if config.get('use_lrc_file'):
+                                    with open(filename[0:-len(config.get('media_format'))] + 'lrc', 'w',
+                                              encoding='utf-8') as f:
+                                        f.write(lyrics)
+                                set_audio_tags(filename, {'lyrics': lyrics}, trk_track_id_str)
                                 self.logger.info(f'lyrics saved for: {trk_track_id_str}')
                         except Exception:
                             self.logger.error(f'Could not get lyrics for {trk_track_id_str}, '
                                          f'unexpected error: {traceback.format_exc()}')
                     self.progress.emit([trk_track_id_str, "Downloaded", [100, 100],
                                         filename,
-                                        f'{name} [{_artist} - {album_name}:{release_year}].f{config.get("media_format")}'])
+                                        f'{song_info["name"]} [{_artist} - {song_info["album_name"]}:{song_info["release_year"]}].f{config.get("media_format")}'])
                     return True
         except queue.Empty:
             if os.path.exists(filename):
@@ -196,7 +206,7 @@ class DownloadWorker(QObject):
             extra_paths = os.path.join(extra_paths, podcast_name)
         if podcast_name is None:
             self.progress.emit([episode_id_str, "Not Found", [0, 100]])
-            self.logger.error(f"Downloading failed for episode by id '{episode_id_str}', Not found")
+            self.logger.error(f"Download faget_song_infoiled for episode by id '{episode_id_str}', Not found")
             return False
         else:
             try:
