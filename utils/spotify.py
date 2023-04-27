@@ -163,7 +163,8 @@ def set_audio_tags(filename, metadata, track_id_str):
     logger.info(
         f"Setting tags for audio media at '{filename}', mediainfo -> '{metadata}'")
     tags = music_tag.load_file(filename)
-    for key, value in iter(metadata):
+    for key in metadata.keys():
+        value = metadata[key]
         if key == 'artists':
             tags['artist'] = conv_artist_format(value)
         elif key in ['name', 'track_title', 'tracktitle']:
