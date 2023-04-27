@@ -83,7 +83,8 @@ class ParsingQueueProcessor(QObject):
         while not self.__stop:
             item = self.__queue.get()
             parsing_index = item.get('override_parsing_acc_sn', config.get("parsing_acc_sn") - 1)
-            session = session_pool[parsing_index]
+            selected_uuid = config.get('accounts')[parsing_index][3]
+            session = session_pool[selected_uuid]
             logger.debug(f'Got data to parse: {str(item)}')
 
             if item['media_type'] == 'album':
@@ -188,7 +189,7 @@ class ParsingQueueProcessor(QObject):
                         f"Tracks in playlist '{item_name}' by {owner['display_name']} is being parsed and "
                         f"will be added to download queue shortly!"
                     )
-                playlist_songs = get_tracks_from_playlist(session_pool[config.get("parsing_acc_sn") - 1],
+                playlist_songs = get_tracks_from_playlist(session,
                                                           item['media_id'])
                 enqueue_part_cfg = {'extra_paths': item['data'].get('dl_path', ''),
                                     'dl_path_override': True if item['data'].get('dl_path', None) else False

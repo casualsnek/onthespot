@@ -1,6 +1,7 @@
 import os
 import queue
 import time
+import uuid
 from PyQt5 import uic, QtNetwork
 from PyQt5.QtCore import QThread
 from PyQt5.QtWidgets import QMainWindow, QHeaderView, QLabel, QPushButton, QProgressBar, QTableWidgetItem, QFileDialog
@@ -337,25 +338,24 @@ class MainWindow(QMainWindow):
         # Build threads
         self.__rebuild_threads()
 
-    def __user_table_remove_click(self):
+    def __user_table_remove_click(self, account_uuid):
         button = self.sender()
         index = self.tbl_sessions.indexAt(button.pos())
-        logger.debug("Clicked account remove button !")
-        if index.isValid():
-            logger.info("Removed clicked for valid item ->" + self.tbl_sessions.item(index.row(), 0).text())
-            username = self.tbl_sessions.item(index.row(), 0).text()
-            removed = remove_user(username,
-                                  os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "sessions"),
-                                  config)
-            if removed:
-                self.tbl_sessions.removeRow(index.row())
-                self.__users = [user for user in self.__users if user[0] == username]
-                self.__splash_dialog.run(
-                    "Account '{}' was removed successfully!\n"
-                    "This account session will remain used until application restart.".format(username))
-            else:
-                self.__splash_dialog.run(
-                    "Something went wrong while removing account with username '{}' !".format(username))
+        # TODO: Wait for thread using the account, then remove thread as well as the account
+        logger.debug(f"Clicked account remove button ! uuid: {account_uuid}")
+        for account in config.get('accounts'):
+            if account[3] == account_uuid:
+                removed = remove_user(account[0],
+                                      os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "sessions"),
+                                      config, account_uuid, thread_pool, session_pool)
+                if removed:
+                    self.tbl_sessions.removeRow(index.row())
+                    self.__users = [user for user in self.__users if user[0] == account[0]]
+                    self.__splash_dialog.run(
+                        "Account '{}' was removed successfully!\n".format(account[0]))
+                else:
+                    self.__splash_dialog.run(
+                        "Something went wrong while removing account with username '{}' !".format(account[0]))
 
     def __generate_users_table(self, userdata):
         # Clear the table
@@ -366,7 +366,7 @@ class MainWindow(QMainWindow):
             sn = sn + 1
             btn = QPushButton(self.tbl_sessions)
             btn.setText(" Remove ")
-            btn.clicked.connect(self.__user_table_remove_click)
+            btn.clicked.connect(lambda x, account_uuid=user[3]: self.__user_table_remove_click(account_uuid))
             btn.setMinimumHeight(30)
             rows = self.tbl_sessions.rowCount()
             br = "N/A"
@@ -383,40 +383,29 @@ class MainWindow(QMainWindow):
         logger.info("Accounts table was populated !")
 
     def __rebuild_threads(self):
-        # Wait for all threads to close then rebuild threads
-        logger.info("Building downloader.py threads")
-        if len(session_pool) > 0:
-            logger.warning("Session pool not empty ! Reset not implemented")
-            if len(thread_pool) == 0:
-                # Build threads now
-                logger.info(f"Spawning {config.get('max_threads')} downloaders !")
-                for i in range(0, config.get("max_threads")):
-                    session_index = None
-                    t_index = i
-                    while session_index is None:
-                        if t_index >= len(session_pool):
-                            t_index = t_index - len(session_pool)
-                        else:
-                            session_index = t_index
-                    item = [DownloadWorker(), QThread()]
-                    logger.info(f"Spawning DL WORKER {str(i + 1)} using session_index: {t_index}")
-                    item[0].setup(thread_name="DL WORKER " + str(i + 1), session=session_pool[t_index],
-                                  queue_tracks=download_queue)
-                    item[0].moveToThread(item[1])
-                    item[1].started.connect(item[0].run)
-                    item[0].finished.connect(item[1].quit)
-                    item[0].finished.connect(item[0].deleteLater)
-                    item[1].finished.connect(item[1].deleteLater)
-                    item[0].progress.connect(dl_progress_update)
-                    item[1].start()
-                    thread_pool.append(item)
+        # Check how many threads can we build till we reach max thread
+        logger.debug(f'Thread builder -> TPool count : {len(thread_pool)}, SPool count : {len(session_pool)}, MaxT : {config.get("max_threads")}')
+        for session_uuid in session_pool.keys():
+            if ( len(thread_pool) < config.get('max_threads') ) and session_uuid not in thread_pool.keys():
+                # We have space for new thread and the session is not used by any thread
+                thread_pool[session_uuid] = [DownloadWorker(), QThread()]
+                logger.info(f"Spawning DL thread using session : {session_uuid} ")
+                thread_pool[session_uuid][0].setup(
+                    thread_name=f"SESSION_DL_TH-{session_uuid}",
+                    session_uuid=session_uuid,
+                    queue_tracks=download_queue)
+                thread_pool[session_uuid][0].moveToThread(thread_pool[session_uuid][1])
+                thread_pool[session_uuid][1].started.connect(thread_pool[session_uuid][0].run)
+                thread_pool[session_uuid][0].finished.connect(thread_pool[session_uuid][1].quit)
+                thread_pool[session_uuid][0].finished.connect(thread_pool[session_uuid][0].deleteLater)
+                thread_pool[session_uuid][1].finished.connect(thread_pool[session_uuid][1].deleteLater)
+                thread_pool[session_uuid][0].progress.connect(dl_progress_update)
+                thread_pool[session_uuid][1].start()
             else:
-                # Signal and wait for threads to terminate and clear pool and call sel
-                pass
-        else:
+                logger.debug(f'Session {session_uuid} not used, resource busy !')
+        if len(session_pool) == 0:
             # Display notice that no session is available and threads are not built
-            self.__splash_dialog.run(
-                "No session available, login to at least one account and click reinit threads button !")
+            self.__splash_dialog.run("No session available for , login to at least one account !")
 
     def __fill_configs(self):
         self.inp_max_threads.setValue(config.get("max_threads"))
@@ -529,26 +518,28 @@ class MainWindow(QMainWindow):
             logger.warning('Account already exists ' + self.inp_login_username.text().strip())
         if self.inp_login_username.text().strip() != '' and self.inp_login_password.text() != '':
             logger.debug('Credentials are not empty !')
+            uuid_uniq = str(uuid.uuid4())
             login = login_user(self.inp_login_username.text().strip(), self.inp_login_password.text(),
-                               os.path.join(os.path.expanduser('~'), '.cache', 'casualOnTheSpot', 'sessions'))
+                               os.path.join(os.path.expanduser('~'), '.cache', 'casualOnTheSpot', 'sessions'), uuid_uniq)
             if login[0]:
                 # Save to config and add to session list then refresh tables
                 cfg_copy = config.get('accounts').copy()
                 new_user = [
                     self.inp_login_username.text().strip(),
                     login[3],
-                    int(time.time())
+                    int(time.time()),
+                    login[4],
                 ]
                 cfg_copy.append(new_user)
                 config.set_('accounts', cfg_copy)
                 config.update()
-                session_pool.append(login[1])
-                self.__splash_dialog.run(
-                    'Logged in successfully ! \n You need to restart application to be able to use this account.'
-                )
+                session_pool[login[4]] = login[1]
+                self.__splash_dialog.run('Logged in successfully ! \n')
                 logger.info(f"Account {self.inp_login_username.text().strip()} added successfully")
-                self.__users.append([self.inp_login_username.text().strip(), 'Premium' if login[3] else 'Free', 'OK'])
+                self.__users.append([self.inp_login_username.text().strip(), 'Premium' if login[3] else 'Free', 'OK',
+                                     login[4]])
                 self.__generate_users_table(self.__users)
+                self.__rebuild_threads()
             else:
                 logger.error(f"Account add failed for : {self.inp_login_username.text().strip()}")
                 self.__splash_dialog.run('Login failed ! Probably invalid username or password.')
@@ -576,7 +567,9 @@ class MainWindow(QMainWindow):
                 filters.append('track')
             if self.inp_enable_search_artists.isChecked():
                 filters.append('artist')
-            results = search_by_term(session_pool[config.get('parsing_acc_sn') - 1], search_term,
+            selected_uuid = config.get('accounts')[ config.get('parsing_acc_sn') - 1 ][3]
+            session = session_pool[ selected_uuid ]
+            results = search_by_term(session, search_term,
                                      config.get('max_search_results'), content_types=filters)
             self.__populate_search_results(results)
             self.__last_search_data = results

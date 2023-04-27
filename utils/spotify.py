@@ -1,3 +1,4 @@
+import string
 import subprocess
 from exceptions import *
 import requests.adapters
@@ -85,13 +86,16 @@ def get_tracks_from_playlist(session, playlist_id):
 
 
 def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
-    sanitize = [':', '*', '?', "'", '<', '>', '"', '/'] if os.name == 'nt' else []
+    sanitize = ['*', '?', '\'', '<', '>', '"', '/'] if os.name == 'nt' else []
     if not allow_path_separators:
         sanitize.append(os.path.sep)
     for i in sanitize:
         value = value.replace(i, '')
     if os.name == 'nt':
         value = value.replace('|', '-')
+        if value[1] == ":" and value[0].lower() in string.ascii_lowercase:
+            # Beginning of win path like C:\, skip first column then remove all other colons
+            value = value[:2] + value[2:].replace(':', '')
     else:
         if escape_quotes and '"' in value:
             # Since convert uses double quotes, we may need to escape if it exists in path, on windows double quotes is
@@ -174,6 +178,7 @@ def set_music_thumbnail(filename, image_url):
     img = requests.get(image_url).content
     tags = music_tag.load_file(filename)
     tags['artwork'] = img
+    tags['artwork'].first.mime = 'image/png'
     tags.save()
 
 

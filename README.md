@@ -57,7 +57,6 @@ bash ./build_linux.sh
 After the command completes, you should have a 'dist' directory in repository root containing built 'onthespot_linux' binary.
 
 ## 2.2. On Windows
-Download Microsoft C++ build tools from [Here](https://visualstudio.microsoft.com/visual-cpp-build-tools/). Setup/Install it and reboot your computer. ( Required for building simpleaudio  python module)
 
 Open cmd and run the following command to clone the repository and build.
 ```cmd

@@ -2,8 +2,6 @@ import os
 import json
 import platform
 import shutil
-import sys
-import time
 from shutil import which
 
 
@@ -48,7 +46,7 @@ class Config:
         else:
             os.makedirs(os.path.dirname(self.__cfg_path), exist_ok=True)
             with open(self.__cfg_path, "w") as cf:
-                cf.write(json.dumps(self.__template_data))
+                cf.write(json.dumps(self.__template_data, indent=4))
             self.__config = self.__template_data
         os.makedirs(self.get("download_root"), exist_ok=True)
         os.makedirs(os.path.dirname(self.get("log_file")), exist_ok=True)
@@ -57,14 +55,16 @@ class Config:
         app_root = os.path.dirname(os.path.realpath(__file__))
         if os.path.isfile(os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)):
             # Try embedded binary at first
+            print('FFMPEG found in package !')
             self.set_('_ffmpeg_bin_path', os.path.abspath(os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)))
-        elif os.path.isfile(os.path.join(self.get('ffmpeg_bin_dir'), 'ffmpeg' + self.ext_ )):
+        elif os.path.isfile(os.path.join(self.get('ffmpeg_bin_dir', '.'), 'ffmpeg' + self.ext_ )):
             # Now try user defined binary path
-            self.set_('_ffmpeg_bin_path', os.path.abspath(os.path.join(self.get('ffmpeg_bin_dir'), 'ffmpeg' + self.ext_ )))
+            print('FFMPEG found at config:ffmpeg_bin_dir !')
+            self.set_('_ffmpeg_bin_path', os.path.abspath(os.path.join(self.get('ffmpeg_bin_dir', '.'), 'ffmpeg' + self.ext_ )))
         else:
             # Try system binaries as fallback
-            self.set_('_ffmpeg_bin_path',
-                      os.path.dirname(os.path.abspath(which('ffmpeg'))) if which('ffmpeg') else 'ffmpeg'+self.ext_)
+            print('Attempting to use system ffmpeg binary !')
+            self.set_('_ffmpeg_bin_path', os.path.abspath(which('ffmpeg')) if which('ffmpeg') else 'ffmpeg'+self.ext_ )
         print("Using ffmpeg binary at: ", self.get('_ffmpeg_bin_path'))
 
     def get(self, key, default=None):
@@ -88,12 +88,12 @@ class Config:
             if not key.startswith('_'):
                 self.set_(key, self.__template_data[key])
         with open(self.__cfg_path, "w") as cf:
-            cf.write(json.dumps(self.__config))
+            cf.write(json.dumps(self.__config, indent=4))
 
     def rollback(self):
         shutil.rmtree(os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "sessions"))
         with open(self.__cfg_path, "w") as cf:
-            cf.write(json.dumps(self.__template_data))
+            cf.write(json.dumps(self.__template_data, indent=4))
         self.__config = self.__template_data
 
 

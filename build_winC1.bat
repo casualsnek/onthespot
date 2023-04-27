@@ -1,6 +1,6 @@
 @echo off
 echo ========= OnTheSpot Windows Build Script ===========
-echo =^> Cleaning up !"
+echo =^> Cleaning up !
 rmdir build /s /q
 rmdir __pycache__ /s /q
 rmdir venvwin /s /q

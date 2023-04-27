@@ -9,10 +9,10 @@ pip install simpleaudio
 pip install -r requirements.txt
 if exist ffbin_win\ffmpeg.exe (
     echo =^> Found 'ffbin_win' directory and ffmpeg binary.. Using ffmpeg binary append mode
-    pyinstaller --onefile --noconfirm --hidden-import simpleaudio --add-binary="ffbin_win/*.exe;bin/ffmpeg" --add-data="gui/qtui/*.ui;gui/qtui" --paths="." --name="onthespot_win" __init__.py
+    pyinstaller --onefile --noconfirm --add-binary="ffbin_win/*.exe;bin/ffmpeg" --add-data="gui/qtui/*.ui;gui/qtui" --paths="." --name="onthespot_win" __init__.py
 ) else (
     echo  =^> Building to use ffmpeg binary from system...
-    pyinstaller --onefile --noconfirm --hidden-import simpleaudio --add-data="gui/qtui/*.ui;gui/qtui" --paths="." --name="onthespot_win" __init__.py
+    pyinstaller --onefile --noconfirm --add-data="gui/qtui/*.ui;gui/qtui" --paths="." --name="onthespot_win" __init__.py
 )
 echo  =^> Cleaning..
 del /F /Q /A onthespot_win.spec

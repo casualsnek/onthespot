@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 
 
 log_formatter = logging.Formatter(
-    '[%(asctime)s :: %(pathname)s -> %(lineno)s:%(funcName)20s() :: %(levelname)s] -> %(message)s'
+    '[%(asctime)s :: %(name)s :: %(pathname)s -> %(lineno)s:%(funcName)20s() :: %(levelname)s] -> %(message)s'
 )
 log_handler = RotatingFileHandler(config.get("log_file"),
                                   mode='a',
@@ -18,8 +18,8 @@ stdout_handler = logging.StreamHandler(sys.stdout)
 log_handler.setFormatter(log_formatter)
 stdout_handler.setFormatter(log_formatter)
 download_queue = Queue()
-thread_pool = []
-session_pool = []
+thread_pool = {}
+session_pool = {}
 failed_downloads = {}
 cancel_list = {}
 downloads_status = {}
