@@ -1,0 +1,9 @@
+
+[Desktop Entry]
+Type=Application
+Name=OnTheSpot
+GenericName=Music downloader
+Comment=Simple and easy to use audio media downloader
+Icon=casual_onthespot
+Exec=onthespot_gui
+Categories=Utilities

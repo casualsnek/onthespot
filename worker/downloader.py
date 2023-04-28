@@ -4,6 +4,8 @@ import socket
 import subprocess
 import time
 import traceback
+
+import requests
 from PyQt5.QtCore import QObject, pyqtSignal
 from librespot.audio.decoders import AudioQuality, VorbisOnlyAudioQuality
 from librespot.metadata import TrackId, EpisodeId
@@ -127,6 +129,9 @@ class DownloadWorker(QObject):
                                 self.progress.emit([trk_track_id_str, "Cancelled", [0, 100]])
                                 cancel_list.pop(trk_track_id_str)
                                 self.__last_cancelled = True
+                                if os.path.exists(filename):
+                                    file.close()
+                                    os.remove(filename)
                                 return False
                             data = stream.input_stream.stream().read(_CHUNK_SIZE)
                             self.logger.debug(
@@ -217,7 +222,7 @@ class DownloadWorker(QObject):
         self.logger.info(f"Downloading episode by id '{episode_id_str}'")
         podcast_path = os.path.join(config.get("download_root"), config.get("podcast_subdir", "Podcasts"))
         quality = AudioQuality.HIGH
-        podcast_name, episode_name = get_episode_info(session, episode_id_str)
+        podcast_name, episode_name, thumbnail, release_date, total_episodes, artist = get_episode_info(session, episode_id_str)
         skip_existing_file = True
         if extra_paths == "":
             extra_paths = os.path.join(extra_paths, podcast_name)
@@ -228,7 +233,6 @@ class DownloadWorker(QObject):
         else:
             try:
                 filename = podcast_name + " - " + episode_name
-
                 episode_id = EpisodeId.from_base62(episode_id_str)
                 stream = session.content_feeder().load(episode_id, VorbisOnlyAudioQuality(quality), False, None)
                 os.makedirs(os.path.join(podcast_path, extra_paths), exist_ok=True)
@@ -236,17 +240,26 @@ class DownloadWorker(QObject):
                 downloaded = 0
                 _CHUNK_SIZE = config.get("chunk_size")
                 fail = 0
-                file_path = os.path.join(podcast_path, extra_paths, filename + ".wav")
+                extension = config.get('podcast_media_format', 'mp3')
+                file_path = os.path.join(podcast_path, extra_paths, filename + f".{extension}")
                 if os.path.isfile(file_path) and os.path.getsize(file_path) and skip_existing_file:
                     self.logger.info(f"Episode by id '{episode_id_str}', already exists.. Skipping ")
                     self.progress.emit([episode_id_str, "Downloaded", [100, 100], file_path, filename])
                     return True
                 with open(file_path, 'wb') as file:
                     while downloaded <= total_size:
+                        if episode_id_str in cancel_list:
+                            self.progress.emit([episode_id_str, "Cancelled", [0, 100]])
+                            cancel_list.pop(episode_id_str)
+                            self.__last_cancelled = True
+                            if os.path.exists(file_path):
+                                file.close()
+                                os.remove(file_path)
+                            return False
                         data = stream.input_stream.stream().read(_CHUNK_SIZE)
                         downloaded += len(data)
                         file.write(data)
-                        self.progress.emit([episode_id_str, None, [downloaded, total_size]])
+                        self.progress.emit([episode_id_str, None, [downloaded, total_size], file_path, filename])
                         if (total_size - downloaded) < _CHUNK_SIZE:
                             _CHUNK_SIZE = total_size - downloaded
                         if len(data) == 0:
@@ -256,6 +269,26 @@ class DownloadWorker(QObject):
                             break
                 if downloaded >= total_size:
                     self.logger.info(f"Episode by id '{episode_id_str}', downloaded")
+                    if extension not in ['ogg', 'wav']:
+                        self.progress.emit([episode_id_str, "Converting", None, file_path, filename])
+                        convert_audio_format(file_path, quality)
+                    self.logger.info(f'Writing metadata for episode "{episode_id_str}" ')
+                    self.progress.emit([episode_id_str, "Writing metadata", None, file_path, filename])
+                    set_audio_tags(
+                        file_path,
+                        {
+                            'name': episode_name,
+                            'album_name': podcast_name,
+                            'release_year': release_date,
+                            'total_tracks': total_episodes,
+                            'artists': [artist],
+                            'genre': ['Podcast']
+                        },
+                        episode_id_str
+                    )
+                    self.progress.emit([episode_id_str, "Setting thumbnail", None, file_path, filename])
+                    self.logger.info(f'Setting thumbnail for episode "{episode_id_str}" ')
+                    set_music_thumbnail(file_path, thumbnail)
                     self.progress.emit([episode_id_str, "Downloaded", [100, 100], file_path, filename])
                     return True
                 else:

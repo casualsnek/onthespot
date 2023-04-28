@@ -164,6 +164,7 @@ def conv_artist_format(artists):
 def set_audio_tags(filename, metadata, track_id_str):
     logger.info(
         f"Setting tags for audio media at '{filename}', mediainfo -> '{metadata}'")
+    type_ = 'track'
     tags = music_tag.load_file(filename)
     for key in metadata.keys():
         value = metadata[key]
@@ -182,6 +183,8 @@ def set_audio_tags(filename, metadata, track_id_str):
         elif key == 'lyrics':
             tags['lyrics'] = value
         elif key == 'genre':
+            if 'Podcast' in value or 'podcast' in value:
+                type_ = 'episode'
             tags['genre'] = conv_artist_format(value)
         elif key in ['total_tracks', 'totaltracks']:
             tags['totaltracks'] = value
@@ -189,7 +192,7 @@ def set_audio_tags(filename, metadata, track_id_str):
             tags['totaldiscs'] = value
         elif key == 'isrc':
             tags['isrc'] = value
-    tags['comment'] = 'id[spotify.com:track:' + track_id_str + ']'
+    tags['comment'] = f'id[spotify.com:{type_}:{track_id_str}]'
     tags.save()
 
 
@@ -288,11 +291,10 @@ def get_episode_info(session, episode_id_str):
     token = session.tokens().get("user-read-email")
     info = json.loads(requests.get("https://api.spotify.com/v1/episodes/" +
                                    episode_id_str, headers={"Authorization": "Bearer %s" % token}).text)
-
     if "error" in info:
-        return None, None
+        return None, None, None
     else:
-        return sanitize_data(info["show"]["name"]), sanitize_data(info["name"])
+        return sanitize_data(info["show"]["name"]), sanitize_data(info["name"]), get_thumbnail(info['images']), info['release_date'], info['show']['total_episodes'], info['show']['publisher']
 
 
 def get_show_episodes(session, show_id_str):

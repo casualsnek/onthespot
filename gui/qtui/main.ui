@@ -16,6 +16,10 @@
   <property name="windowTitle">
    <string>casualOnTheSpot</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>../../resources/icon.png</normaloff>../../resources/icon.png</iconset>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_10">
     <item>

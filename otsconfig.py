@@ -31,6 +31,7 @@ class Config:
             "max_retries": 3,
             "max_search_results": 10,
             "media_format": "mp3",
+            "podcast_media_format": "mp3",
             "force_raw": False,
             "force_premium": False,
             "chunk_size": 50000,
@@ -57,12 +58,12 @@ class Config:
         os.makedirs(os.path.dirname(self.get("log_file")), exist_ok=True)
 
         # Set ffmpeg path
-        app_root = os.path.dirname(os.path.realpath(__file__))
-        if os.path.isfile(os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)):
+        self.app_root = os.path.dirname(os.path.realpath(__file__))
+        if os.path.isfile(os.path.join(self.app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)):
             # Try embedded binary at first
             print('FFMPEG found in package !')
             self.set_('_ffmpeg_bin_path',
-                      os.path.abspath(os.path.join(app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)))
+                      os.path.abspath(os.path.join(self.app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)))
         elif os.path.isfile(os.path.join(self.get('ffmpeg_bin_dir', '.'), 'ffmpeg' + self.ext_)):
             # Now try user defined binary path
             print('FFMPEG found at config:ffmpeg_bin_dir !')

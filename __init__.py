@@ -5,11 +5,16 @@ from gui.mainui import MainWindow
 from gui.minidialog import MiniDialog
 from runtimedata import get_logger
 
-if __name__ == '__main__':
+
+def main():
     logger = get_logger('__init__')
     logger.info('Starting application in \n3\n2\n1')
     app = QApplication(sys.argv)
     _dialog = MiniDialog()
     window = MainWindow(_dialog)
+    app.setDesktopFileName('org.eu.casualsnek.onthespot')
     app.exec_()
     logger.info('Good bye ..')
+
+if __name__ == '__main__':
+    main()

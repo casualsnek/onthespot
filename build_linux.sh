@@ -19,16 +19,20 @@ if [ -f "ffbin_nix/ffmpeg" ]; then
     echo " => Found 'ffbin_win' directory and ffmpeg binary.. Using ffmpeg binary append mode "
     pyinstaller --onefile \
                 --add-data="gui/qtui/*.ui:qui/qtui" \
+                --add-data="resources/*.png:resources" \
                 --add-binary="ffbin_nix/*:bin/ffmpeg" \
                 --paths="." \
-                --name="onthespot_linux" \
+                --name="onthespot_linux_ffm" \
+                --icon="resources/icon.png" \
                 __init__.py
 else
     echo " => Building to use ffmpeg binary from system... "
     pyinstaller --onefile \
                 --add-data="gui/qtui/*.ui:gui/qtui" \
+                --add-data="resources/*.png:resources" \
                 --paths="." \
                 --name="onthespot_linux" \
+                --icon="resources/icon.png" \
                 __init__.py
 fi
 echo " => Setting permissions.. "

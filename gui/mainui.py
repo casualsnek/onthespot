@@ -2,7 +2,7 @@ import os
 import queue
 import time
 import uuid
-from PyQt5 import uic, QtNetwork
+from PyQt5 import uic, QtNetwork, QtGui
 from PyQt5.QtCore import QThread
 from PyQt5.QtWidgets import QMainWindow, QHeaderView, QLabel, QPushButton, QProgressBar, QTableWidgetItem, QFileDialog
 from exceptions import EmptySearchResultException
@@ -78,7 +78,9 @@ class MainWindow(QMainWindow):
     def __init__(self, _dialog):
         super(MainWindow, self).__init__()
         self.path = os.path.dirname(os.path.realpath(__file__))
+        icon_path = os.path.join(config.app_root, 'resources', 'icon.png')
         uic.loadUi(os.path.join(self.path, "qtui", "main.ui"), self)
+        self.setWindowIcon(QtGui.QIcon(icon_path))
         logger.info("Initialising main window")
         self.group_search_items.hide()
         # Bind button click

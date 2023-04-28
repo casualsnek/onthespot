@@ -144,7 +144,7 @@ class ParsingQueueProcessor(QObject):
                     if not item['data'].get('hide_dialogs', False):
                         self.progress.emit('Episodes are being parsed and will be added to download queue shortly !')
                     for episode_id in get_show_episodes(session, item['media_id']):
-                        show_name, episode_name = get_episode_info(session, episode_id)
+                        show_name, episode_name, thumbnail, release_date, total_episodes, artist = get_episode_info(session, episode_id)
                         logger.info(
                             f"PQP parsing podcast : {show_name}:{item['media_id']}, "
                             f"episode item: {episode_name}:{episode_id}"
@@ -166,7 +166,7 @@ class ParsingQueueProcessor(QObject):
                     if not item['data'].get('hide_dialogs', False):
                         self.progress.emit(f"Added show '{show_name}' to download queue!")
                 elif item['media_type'] == 'episode':
-                    podcast_name, episode_name = get_episode_info(session, item['media_id'])
+                    podcast_name, episode_name, thumbnail, release_date, total_episodes, artist = get_episode_info(session, item['media_id'])
                     logger.info(f"PQP parsing podcast episode : {episode_name}:{item['media_id']}")
                     if not item['data'].get('hide_dialogs', False):
                         self.progress.emit(f"Adding episode '{episode_name}' of '{podcast_name}' to download queue !")
