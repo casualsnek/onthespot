@@ -8,7 +8,7 @@ from logging.handlers import RotatingFileHandler
 log_formatter = logging.Formatter(
     '[%(asctime)s :: %(name)s :: %(pathname)s -> %(lineno)s:%(funcName)20s() :: %(levelname)s] -> %(message)s'
 )
-log_handler = RotatingFileHandler(config.get("log_file"),
+log_handler = RotatingFileHandler(config.get("_log_file"),
                                   mode='a',
                                   maxBytes=(5 * 1024 * 1024),
                                   backupCount=2,

@@ -95,9 +95,11 @@ def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
         value = value.replace(i, '')
     if os.name == 'nt':
         value = value.replace('|', '-')
-        if value[1] == ":" and value[0].lower() in string.ascii_lowercase:
+        if value[0].lower() in string.ascii_lowercase and value[1] == ":" and value[2] == '\\':
             # Beginning of win path like C:\, skip first column then remove all other colons
-            value = value[:2] + value[2:].replace(':', '')
+            value = value[:2] + value[2:].replace(':', '-')
+        else:
+            value = value.replace(':', '-')
         value = value.rstrip('.')
     else:
         if escape_quotes and '"' in value:
@@ -147,6 +149,7 @@ def convert_audio_format(filename, quality):
         temp_name = os.path.join(target_path.parent, ".~"+target_path.stem+".ogg")
         if os.path.isfile(temp_name):
             os.remove(temp_name)
+
         os.rename(filename, temp_name)
         # Prepare default parameters
         command = [
@@ -158,8 +161,8 @@ def convert_audio_format(filename, quality):
         for param in config.get('ffmpeg_args'):
             command.append(param)
         # Add output parameter at last
-        logger.info(f'Converting media with ffmpeg. Built commandline {command} ')
         command.append( sanitize_data(filename, allow_path_separators=True, escape_quotes=True) )
+        logger.info(f'Converting media with ffmpeg. Built commandline {command} ')
         subprocess.check_call(command, shell=False)
         os.remove(temp_name)
     else:
@@ -291,8 +294,8 @@ def get_song_info(session, song_id):
         # https://developer.spotify.com/documentation/web-api/reference/get-track
         # List of genre is supposed to be here, genre from album API is deprecated and it always seems to be unavailable
         # Use artist endpoint to get artist's genre instead
-        'label': rt_cache['REQurl'][album_url]['label'],
-        'copyrights':  [ holder['text'] for holder in rt_cache['REQurl'][album_url]['copyrights'] ],
+        'label': sanitize_data(rt_cache['REQurl'][album_url]['label']),
+        'copyrights':  [ sanitize_data(holder['text']) for holder in rt_cache['REQurl'][album_url]['copyrights'] ],
         'explicit': info['tracks'][0]['explicit']
     }
     return info
@@ -306,7 +309,7 @@ def get_episode_info(session, episode_id_str):
     if "error" in info:
         return None, None, None
     else:
-        return sanitize_data(info["show"]["name"]), sanitize_data(info["name"]), get_thumbnail(info['images']), info['release_date'], info['show']['total_episodes'], info['show']['publisher']
+        return sanitize_data(info["show"]["name"]), sanitize_data(info["name"]), get_thumbnail(info['images']), info['release_date'], info['show']['total_episodes'], sanitize_data(info['show']['publisher'])
 
 
 def get_show_episodes(session, show_id_str):

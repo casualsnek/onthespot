@@ -82,7 +82,8 @@ class MainWindow(QMainWindow):
         uic.loadUi(os.path.join(self.path, "qtui", "main.ui"), self)
         self.setWindowIcon(QtGui.QIcon(icon_path))
         self.start_url = start_url
-        logger.info("Initialising main window")
+        self.inp_session_uuid.setText(config.session_uuid)
+        logger.info(f"Initialising main window, logging session : {config.session_uuid}")
         self.group_search_items.hide()
         # Bind button click
         self.bind_button_inputs()
@@ -300,6 +301,7 @@ class MainWindow(QMainWindow):
                 'extra_paths': item['dl_params']['extra_paths'],
                 'force_album_format': config.get('playlist_track_force_album_dir'),
                 'extra_path_as_root': item['dl_params']['extra_path_as_root'],
+                'force_album_after_extra_path_as_root': item['dl_params']['force_album_after_extra_path_as_root'],
                 'm3u_filename': '',
                 'playlist_name': item['dl_params'].get('playlist_name', ''),
                 'playlist_owner': item['dl_params'].get('playlist_owner', ''),
@@ -629,10 +631,8 @@ class MainWindow(QMainWindow):
                 "hide_dialogs": hide_dialog,
             }
         }
-        tmp_dl_val = self.inp_tmp_dl_root.text().strip()
-        if self.__advanced_visible and tmp_dl_val != "" and os.path.isdir(tmp_dl_val):
-            queue_item['data']['dl_path'] = tmp_dl_val
-        self.__parsing_queue.put(queue_item)
+        
+        self.__send_to_pqp(queue_item)
         if not hide_dialog:
             self.__splash_dialog.run(
                 f"The {media_type.title()} is being parsed and will be added to download queue shortly !")
@@ -641,7 +641,7 @@ class MainWindow(QMainWindow):
     def __insert_search_result_row(self, btn_text, item_name, item_by, item_type, queue_data):
         btn = QPushButton(self.tbl_search_results)
         btn.setText(btn_text.strip())
-        btn.clicked.connect(lambda x, q_data=queue_data: self.__parsing_queue.put(q_data))
+        btn.clicked.connect(lambda x, q_data=queue_data: self.__send_to_pqp(q_data))
         btn.setMinimumHeight(30)
 
 
@@ -716,7 +716,7 @@ class MainWindow(QMainWindow):
                                           'media_title': item_name.replace('[ E ]', ''),
                                           "hide_dialogs": hide_dialog
                                       }}
-                        self.__parsing_queue.put(queue_data)
+                        self.__send_to_pqp(queue_data)
                     downloaded_types.append(d_key)
             if len(downloaded_types) != 0:
                 self.__splash_dialog.run(
@@ -738,3 +738,17 @@ class MainWindow(QMainWindow):
                     check_row = check_row + 1
             else:
                 check_row = check_row + 1
+
+    def __send_to_pqp(self, queue_item):
+        tmp_dl_val = self.inp_tmp_dl_root.text().strip()
+        if self.__advanced_visible and tmp_dl_val != "":
+            logger.info('Advanced tab visible and temporary download path set !')
+            try:
+                if not os.path.exists(os.path.abspath(tmp_dl_val)):
+                    os.makedirs(os.path.abspath(tmp_dl_val), exist_ok=True)
+                queue_item['data']['dl_path'] = tmp_dl_val
+                queue_item['data']['dl_path_is_root'] = True
+                queue_item['data']['force_album_after_extra_path_as_root'] = self.inp_force_album_after_extra_path_as_root.isChecked()
+            except:
+                logger.error('Temp dl path cannot be created !')
+        self.__parsing_queue.put(queue_item)

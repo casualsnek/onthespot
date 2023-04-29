@@ -77,10 +77,11 @@ class ParsingQueueProcessor(QObject):
                     'dl_params': {
                         'media_type': 'track',
                         'extra_paths': enqueue_part_cfg.get('extra_paths', ''),
-                        'extra_path_as_root': bool(enqueue_part_cfg.get('dl_path_override', False)),
+                        'extra_path_as_root': bool(enqueue_part_cfg.get('extra_path_as_root', False)),
                         'playlist_name': enqueue_part_cfg.get('playlist_name', ''),
                         'playlist_owner': enqueue_part_cfg.get('playlist_owner', ''),
-                        'playlist_desc': enqueue_part_cfg.get('playlist_desc', '')
+                        'playlist_desc': enqueue_part_cfg.get('playlist_desc', ''),
+                        'force_album_after_extra_path_as_root': enqueue_part_cfg.get('force_album_after_extra_path_as_root', False),
                     }
                 }
             )
@@ -104,11 +105,10 @@ class ParsingQueueProcessor(QObject):
                         )
                     tracks = get_album_tracks(session, item['media_id'])
                     logger.info("Passing control to track downloader.py for album tracks downloading !!")
-                    extra_path = config.get("album_name_formatter").format(artist=artist, rel_year=album_release_date,
-                                                                           album=album_name)
                     enqueue_part_cfg = {
-                        'extra_paths': item['data']['dl_path'] if item['data'].get('dl_path', None) else extra_path,
-                        'dl_path_override': True if item['data'].get('dl_path', None) else False
+                        'extra_paths': item['data'].get('dl_path', ''),
+                        'extra_path_as_root': item['data'].get('dl_path_is_root', False),
+                        'force_album_after_extra_path_as_root': item['data'].get('force_album_after_extra_path_as_root', False)
                     }
                     self.enqueue_tracks(tracks, enqueue_part_cfg=enqueue_part_cfg,
                                         log_id=f'{album_name}:{item["media_id"]}',
@@ -129,11 +129,10 @@ class ParsingQueueProcessor(QObject):
                         item_name = artist
                         tracks = get_album_tracks(session, album_id)
                         logger.info("Passing control to track downloader.py for album artist downloading !!")
-                        extra_path = config.get("album_name_formatter").format(artist=artist, rel_year=album_release_date,
-                                                                               album=album_name)
                         enqueue_part_cfg = {
-                            'extra_paths': item['data']['dl_path'] if item['data'].get('dl_path', None) else extra_path,
-                            'dl_path_override': True if item['data'].get('dl_path', None) else False
+                            'extra_paths': item['data'].get('dl_path', ''),
+                            'extra_path_as_root': item['data'].get('dl_path_is_root', False),
+                            'force_album_after_extra_path_as_root': item['data'].get('force_album_after_extra_path_as_root', False)
                         }
                         self.enqueue_tracks(tracks, enqueue_part_cfg=enqueue_part_cfg,
                                             log_id=f'{artist}:{item["media_id"]}', item_type=f"Artist [{item_name}]")
@@ -158,8 +157,8 @@ class ParsingQueueProcessor(QObject):
                                 'item_type_text': f"Podcast [{show_name}]",
                                 'dl_params': {
                                     'media_type': 'episode',
-                                    'extra_paths': '',
-                                    'extra_path_as_root': True if item['data'].get('dl_path', None) else False,
+                                    'extra_paths': item['data'].get('dl_path', ''),
+                                    'extra_path_as_root': item['data'].get('dl_path_is_root', False)
                                 }
                             }
                         )
@@ -179,8 +178,8 @@ class ParsingQueueProcessor(QObject):
                             'item_type_text': f"Podcast [{podcast_name}]",
                             'dl_params': {
                                 'media_type': 'episode',
-                                'extra_paths': '',
-                                'extra_path_as_root': True if item['data'].get('dl_path', None) else False,
+                                'extra_paths': item['data'].get('dl_path', ''),
+                                'extra_path_as_root': item['data'].get('dl_path_is_root', False)
                             }
                         }
                     )
@@ -198,7 +197,8 @@ class ParsingQueueProcessor(QObject):
                     playlist_songs = get_tracks_from_playlist(session,
                                                               item['media_id'])
                     enqueue_part_cfg = {'extra_paths': item['data'].get('dl_path', ''),
-                                        'dl_path_override': True if item['data'].get('dl_path', None) else False,
+                                        'extra_path_as_root': item['data'].get('dl_path_is_root', False),
+                                        'force_album_after_extra_path_as_root': item['data'].get('force_album_after_extra_path_as_root', False),
                                         'playlist_name': name,
                                         'playlist_owner': owner,
                                         'playlist_desc': description
@@ -228,7 +228,8 @@ class ParsingQueueProcessor(QObject):
                         self.progress.emit(f"Adding track '{name}' to download queue !")
                     enqueue_part_cfg = {
                         'extra_paths': item['data'].get('dl_path', ''),
-                        'dl_path_override': True if item['data'].get('dl_path', None) else False
+                        'extra_path_as_root': item['data'].get('dl_path_is_root', False),
+                        'force_album_after_extra_path_as_root': item['data'].get('force_album_after_extra_path_as_root', False)
                     }
                     track_obj = {
                         'id': item['media_id'],

@@ -14,13 +14,13 @@ class Config:
         self.platform = platform.system()
         self.ext_ = ".exe" if self.platform == "Windows" else ""
         self.version = 0.5
+        self.session_uuid = str(uuid.uuid4())
         print('OTS Version : ', self.version)
         self.__template_data = {
             "version": 0.5, # Application version
             "max_threads": 1, # Maximum number of thread we can spwan
             "parsing_acc_sn": 1, # Serial number of account that will be used for parsing links
             "download_root": os.path.join(os.path.expanduser("~"), "Music", "OnTheSpot"), # Root dir for downloads
-            "log_file": os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "logs", "onthespot.log"), # Log file location
             "download_delay": 5, # Seconds to wait before next download
             "track_name_formatter": "{artist} - {album} - {name}", # Track name format string
             "album_name_formatter": "{artist}" + os.path.sep + "[{rel_year}] {album}", # Album name format string
@@ -75,6 +75,8 @@ class Config:
             print('Attempting to use system ffmpeg binary !')
             self.set_('_ffmpeg_bin_path', os.path.abspath(which('ffmpeg')) if which('ffmpeg') else 'ffmpeg' + self.ext_)
         print("Using ffmpeg binary at: ", self.get('_ffmpeg_bin_path'))
+        self.set_('_log_file', os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "logs", self.session_uuid, "onthespot.log"))
+        os.makedirs( os.path.dirname(self.get("_log_file")), exist_ok=True)
 
     def get(self, key, default=None):
         if key in self.__config:
