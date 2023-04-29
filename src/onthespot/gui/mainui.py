@@ -75,12 +75,13 @@ def cancel_all_downloads():
 
 class MainWindow(QMainWindow):
 
-    def __init__(self, _dialog):
+    def __init__(self, _dialog, start_url=''):
         super(MainWindow, self).__init__()
         self.path = os.path.dirname(os.path.realpath(__file__))
         icon_path = os.path.join(config.app_root, 'resources', 'icon.png')
         uic.loadUi(os.path.join(self.path, "qtui", "main.ui"), self)
         self.setWindowIcon(QtGui.QIcon(icon_path))
+        self.start_url = start_url
         logger.info("Initialising main window")
         self.group_search_items.hide()
         # Bind button click
@@ -129,7 +130,6 @@ class MainWindow(QMainWindow):
         self.__media_parser_thread.started.connect(self.__media_parser_worker.run)
         self.__media_parser_worker.finished.connect(self.__media_parser_thread.quit)
         self.__media_parser_worker.finished.connect(self.__media_parser_worker.deleteLater)
-        self.__media_parser_worker.finished.connect(self.__session_load_done)
         self.__media_parser_thread.finished.connect(self.__media_parser_thread.deleteLater)
         self.__media_parser_worker.progress.connect(self.__show_popup_dialog)
         self.__media_parser_worker.enqueue.connect(self.__add_item_to_downloads)
@@ -342,6 +342,11 @@ class MainWindow(QMainWindow):
         self.__splash_dialog.btn_close.show()
         self.__generate_users_table(self.__users)
         self.show()
+        if self.start_url.strip() != '':
+            logger.info(f'Session was started with query of {self.start_url}')
+            self.inp_search_term.setText(self.start_url.strip())
+            self.__get_search_results()
+        self.start_url = ''
         # Build threads
         self.__rebuild_threads()
 

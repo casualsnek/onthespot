@@ -11,10 +11,11 @@ def main():
     logger.info('Starting application in \n3\n2\n1')
     app = QApplication(sys.argv)
     _dialog = MiniDialog()
-    window = MainWindow(_dialog)
+    window = MainWindow(_dialog, sys.argv[1] if len(sys.argv) >= 2 else '' )
     app.setDesktopFileName('org.eu.casualsnek.onthespot')
     app.exec_()
     logger.info('Good bye ..')
+
 
 if __name__ == '__main__':
     main()
