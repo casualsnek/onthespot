@@ -566,6 +566,7 @@ class MainWindow(QMainWindow):
         if search_term.startswith('https://'):
             logger.info(f"Search clicked with value with url {search_term}")
             self.__download_by_url(search_term)
+            self.inp_search_term.setText('')
             return True
         else:
             if os.path.isfile(search_term):
@@ -573,6 +574,7 @@ class MainWindow(QMainWindow):
                     links = sf.readlines()
                     for link in links:
                         self.__download_by_url(link, hide_dialog=True)
+                self.inp_search_term.setText('')
         logger.info(f"Search clicked with value term {search_term}")
         if len(session_pool) <= 0:
             self.__splash_dialog.run('You need to login to at least one account to use this feature !')
@@ -599,6 +601,7 @@ class MainWindow(QMainWindow):
                 return None
             self.__populate_search_results(results)
             self.__last_search_data = results
+            self.inp_search_term.setText('')
         except EmptySearchResultException:
             self.__last_search_data = []
             while self.tbl_search_results.rowCount() > 0:

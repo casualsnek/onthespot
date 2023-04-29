@@ -145,6 +145,8 @@ def convert_audio_format(filename, quality):
         target_path = Path(filename)
         bitrate = "320k" if quality == AudioQuality.VERY_HIGH else "160k"
         temp_name = os.path.join(target_path.parent, ".~"+target_path.stem+".ogg")
+        if os.path.isfile(temp_name):
+            os.remove(temp_name)
         os.rename(filename, temp_name)
         # Prepare default parameters
         command = [
