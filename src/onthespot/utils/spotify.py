@@ -20,18 +20,14 @@ requests.adapters.DEFAULT_RETRIES = 10
 def get_artist_albums(session, artist_id):
     logger.info(f"Get albums for artist by id '{artist_id}'")
     access_token = session.tokens().get("user-read-email")
-    headers = {'Authorization': f'Bearer {access_token}'}
-    resp = requests.get(
-        f'https://api.spotify.com/v1/artists/{artist_id}/albums', headers=headers).json()
+    resp = make_call(f'https://api.spotify.com/v1/artists/{artist_id}/albums', token=access_token)
     return [resp['items'][i]['id'] for i in range(len(resp['items']))]
 
 
 def get_playlist_data(session, playlist_id):
     logger.info(f"Get playlist dump for '{playlist_id}'")
     access_token = session.tokens().get("user-read-email")
-    headers = {'Authorization': f'Bearer {access_token}'}
-    resp = requests.get(
-        f'https://api.spotify.com/v1/playlists/{playlist_id}', headers=headers).json()
+    resp = make_call(f'https://api.spotify.com/v1/playlists/{playlist_id}', token=access_token)
     return resp['name'], resp['owner'], resp['description'], resp['external_urls']['spotify']
 
 
@@ -75,8 +71,7 @@ def get_tracks_from_playlist(session, playlist_id):
     headers = {'Authorization': f'Bearer {access_token}'}
     while True:
         params = {'limit': limit, 'offset': offset}
-        resp = requests.get(
-            f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks', headers=headers, params=params).json()
+        resp = make_call(f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks', token=access_token, params=params)
         offset += limit
         songs.extend(resp['items'])
 
@@ -112,9 +107,7 @@ def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
 def get_album_name(session, album_id):
     logger.info(f"Get album info from album by id ''{album_id}'")
     access_token = session.tokens().get("user-read-email")
-    headers = {'Authorization': f'Bearer {access_token}'}
-    resp = requests.get(
-        f'https://api.spotify.com/v1/albums/{album_id}', headers=headers).json()
+    resp = make_call(f'https://api.spotify.com/v1/albums/{album_id}', token=access_token)
     if m := re.search(r'(\d{4})', resp['release_date']):
         return resp['artists'][0]['name'], m.group(1), sanitize_data(resp['name']), resp['total_tracks']
     else:
@@ -130,10 +123,8 @@ def get_album_tracks(session, album_id):
     include_groups = 'album,compilation'
 
     while True:
-        headers = {'Authorization': f'Bearer {access_token}'}
         params = {'limit': limit, 'include_groups': include_groups, 'offset': offset}
-        resp = requests.get(
-            f'https://api.spotify.com/v1/albums/{album_id}/tracks', headers=headers, params=params).json()
+        resp = make_call(f'https://api.spotify.com/v1/albums/{album_id}/tracks', token=access_token, params=params)
         offset += limit
         songs.extend(resp['items'])
 
@@ -262,17 +253,11 @@ def check_premium(session):
 def get_song_info(session, song_id):
     token = session.tokens().get("user-read-email")
     uri = 'https://api.spotify.com/v1/tracks?ids=' + song_id + '&market=from_token'
-    info = json.loads(requests.get(uri, headers={"Authorization": "Bearer %s" % token}).text)
+    info = make_call(uri, token=token)
     album_url = info['tracks'][0]['album']['href']
     artist_url = info['tracks'][0]['artists'][0]['href']
-    if album_url not in rt_cache['REQurl']:
-        rt_cache['REQurl'][album_url] = json.loads(
-            requests.get(album_url, headers={"Authorization": "Bearer %s" % token}).text
-        )
-    if artist_url not in rt_cache['REQurl']:
-        rt_cache['REQurl'][artist_url] = json.loads(
-            requests.get(artist_url, headers={"Authorization": "Bearer %s" % token}).text
-        )
+    album_data = make_call(album_url, token=token)
+    artist_data = make_call(artist_url, token=token)
     artists = []
     for data in info['tracks'][0]['artists']:
         artists.append(sanitize_data(data['name']))
@@ -285,17 +270,17 @@ def get_song_info(session, song_id):
         'disc_number': info['tracks'][0]['disc_number'],
         'track_number': info['tracks'][0]['track_number'],
         'total_tracks': info['tracks'][0]['album']['total_tracks'],
-        'total_discs': sorted([trk['disc_number'] for trk in rt_cache['REQurl'][album_url]['tracks']['items']])[-1],
+        'total_discs': sorted([trk['disc_number'] for trk in album_data['tracks']['items']])[-1],
         'scraped_song_id': info['tracks'][0]['id'],
         'is_playable': info['tracks'][0]['is_playable'],
         'popularity': info['tracks'][0]['popularity'],
         'isrc': info['tracks'][0]['external_ids'].get('isrc', ''),
-        'genre': rt_cache['REQurl'][artist_url]['genres'],
+        'genre': artist_data['genres'],
         # https://developer.spotify.com/documentation/web-api/reference/get-track
         # List of genre is supposed to be here, genre from album API is deprecated and it always seems to be unavailable
         # Use artist endpoint to get artist's genre instead
-        'label': sanitize_data(rt_cache['REQurl'][album_url]['label']),
-        'copyrights':  [ sanitize_data(holder['text']) for holder in rt_cache['REQurl'][album_url]['copyrights'] ],
+        'label': sanitize_data(album_data['label']),
+        'copyrights':  [ sanitize_data(holder['text']) for holder in album_data['copyrights'] ],
         'explicit': info['tracks'][0]['explicit']
     }
     return info
@@ -304,8 +289,7 @@ def get_song_info(session, song_id):
 def get_episode_info(session, episode_id_str):
     logger.info(f"Get episode info for episode by id '{episode_id_str}'")
     token = session.tokens().get("user-read-email")
-    info = json.loads(requests.get("https://api.spotify.com/v1/episodes/" +
-                                   episode_id_str, headers={"Authorization": "Bearer %s" % token}).text)
+    info = make_call("https://api.spotify.com/v1/episodes/" + episode_id_str, token=token)
     if "error" in info:
         return None, None, None
     else:
@@ -318,12 +302,10 @@ def get_show_episodes(session, show_id_str):
     episodes = []
     offset = 0
     limit = 50
-
     while True:
         headers = {'Authorization': f'Bearer {access_token}'}
         params = {'limit': limit, 'offset': offset}
-        resp = requests.get(
-            f'https://api.spotify.com/v1/shows/{show_id_str}/episodes', headers=headers, params=params).json()
+        resp = make_call(f'https://api.spotify.com/v1/shows/{show_id_str}/episodes', token=access_token, params=params)
         offset += limit
         for episode in resp["items"]:
             episodes.append(episode["id"])
@@ -347,3 +329,10 @@ def get_thumbnail(image_dict, preferred_size=22500):
         if size >= preferred_size:
             return images[size]
     return images[available_sizes[-1]] if len(available_sizes) > 0 else ""
+
+def make_call(url, token, params=None):
+    if params is None:
+        params = {}
+    if url not in rt_cache['REQurl']:
+        rt_cache['REQurl'][url] = json.loads(requests.get(url, headers={"Authorization": "Bearer %s" % token}, params=params).text)         
+    return rt_cache['REQurl'][url]
