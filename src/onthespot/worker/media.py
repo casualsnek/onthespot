@@ -3,9 +3,9 @@ import time
 from PyQt5.QtCore import QObject, pyqtSignal
 from urllib3.exceptions import NewConnectionError, MaxRetryError
 
-from otsconfig import config
-from runtimedata import session_pool, get_logger
-from utils.utils import get_now_playing_local, re_init_session
+from ..otsconfig import config
+from ..runtimedata import session_pool, get_logger
+from ..utils.utils import get_now_playing_local, re_init_session
 
 logger = get_logger("worker.media")
 

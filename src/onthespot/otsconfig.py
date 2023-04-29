@@ -16,34 +16,35 @@ class Config:
         self.version = 0.5
         print('OTS Version : ', self.version)
         self.__template_data = {
-            "version": 0.5,
-            "max_threads": 1,
-            "parsing_acc_sn": 1,
-            "download_root": os.path.join(os.path.expanduser("~"), "Music", "OnTheSpot"),
-            "log_file": os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "logs", "onthespot.log"),
-            "download_delay": 5,
-            "track_name_formatter": "{artist} - {album} - {name}",
-            "album_name_formatter": "{artist}" + os.path.sep + "[{rel_year}] {album}",
-            "playlist_name_formatter": "MyPlaylists" + os.path.sep + "{name} by {owner}",
-            "playlist_track_force_album_dir": 1,
-            "watch_bg_for_spotify": 0,
+            "version": 0.5, # Application version
+            "max_threads": 1, # Maximum number of thread we can spwan
+            "parsing_acc_sn": 1, # Serial number of account that will be used for parsing links
+            "download_root": os.path.join(os.path.expanduser("~"), "Music", "OnTheSpot"), # Root dir for downloads
+            "log_file": os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "logs", "onthespot.log"), # Log file location
+            "download_delay": 5, # Seconds to wait before next download
+            "track_name_formatter": "{artist} - {album} - {name}", # Track name format string
+            "album_name_formatter": "{artist}" + os.path.sep + "[{rel_year}] {album}", # Album name format string
+            "playlist_name_formatter": "MyPlaylists" + os.path.sep + "{name} by {owner}", # Playlist name format string
+            "playlist_track_force_album_dir": 1, # Use album directory format for tracks
+            "watch_bg_for_spotify": 0, # Detect songs playing on spotify desktop client and automatically download the,
             "dl_end_padding_bytes": 167,
-            "max_retries": 3,
-            "max_search_results": 10,
-            "media_format": "mp3",
-            "podcast_media_format": "mp3",
-            "force_raw": False,
-            "force_premium": False,
-            "chunk_size": 50000,
-            "recoverable_fail_wait_delay": 10,
-            "disable_bulk_dl_notices": True,
-            "inp_enable_lyrics": True,
-            "only_synced_lyrics": False,
-            "create_m3u_playlists": False,
-            "ffmpeg_args": "",
-            "show_search_thumbnails": 1,
-            "search_thumb_height": 60,
-            "accounts": []
+            "max_retries": 3, # Number of times to retry before giving up on download
+            "max_search_results": 10, # Number of search results to display of each type
+            "media_format": "mp3", # Song track media format
+            "podcast_media_format": "mp3", # Podcast track media format
+            "force_raw": False, # Skip media conversion and metadata writing
+            "force_premium": False, # Set premium flag to always return true
+            "chunk_size": 50000, # Chunk size in bytes to download in
+            "recoverable_fail_wait_delay": 10, # No of seconds to wait before failure that can be retried
+            "disable_bulk_dl_notices": True, # Hide popups for bulk download buttons
+            "inp_enable_lyrics": True, # Enable lyrics download
+            "only_synced_lyrics": False, # Only use synced lyrics
+            "create_m3u_playlists": False, # Create m3u based playlist
+            "ffmpeg_args": [], # Extra arguments for ffmpeg
+            "show_search_thumbnails": 1, # Show thumbnails in search view
+            "search_thumb_height": 60, # Thumbnail height ( they are of equal width and height )
+            "metadata_seperator": ";", # Seperator used for metadata fields that have multiple values
+            "accounts": [] # Saved account information
         }
         if os.path.isfile(self.__cfg_path):
             self.__config = json.load(open(cfg_path, "r"))

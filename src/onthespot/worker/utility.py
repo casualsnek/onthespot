@@ -4,11 +4,11 @@ import time
 from PyQt5.QtCore import QObject, pyqtSignal
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 
-from otsconfig import config
-from runtimedata import get_logger, playlist_m3u_queue, downloaded_data, session_pool, unavailable
-from utils.spotify import get_album_tracks, get_album_name, get_artist_albums, get_show_episodes, get_episode_info, \
+from ..otsconfig import config
+from ..runtimedata import get_logger, playlist_m3u_queue, downloaded_data, session_pool, unavailable
+from ..utils.spotify import get_album_tracks, get_album_name, get_artist_albums, get_show_episodes, get_episode_info, \
     get_song_info, get_tracks_from_playlist, get_playlist_data
-from utils.utils import re_init_session
+from ..utils.utils import re_init_session
 
 logger = get_logger("worker.utility")
 

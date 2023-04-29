@@ -9,13 +9,14 @@ pip install simpleaudio
 pip install -r requirements.txt
 if exist ffbin_win\ffmpeg.exe (
     echo =^> Found 'ffbin_win' directory and ffmpeg binary.. Using ffmpeg binary append mode
-    pyinstaller --onefile --noconfirm --add-data="gui/qtui/*.ui;gui/qtui" --add-data="resources/*.png;resources" --add-binary="ffbin_win/*.exe;bin/ffmpeg" --paths="." --name="onthespot_win_ffm" --icon="resources/icon.png" __init__.py
+    pyinstaller --noconsole --onefile --noconfirm --add-data="src/onthespot/gui/qtui/*.ui;onthespot/gui/qtui" --add-data="src/onthespot/resources/*.png;onthespot/resources" --add-binary="ffbin_win/*.exe;onthespot/bin/ffmpeg" --paths="src/onthespot" --name="onthespot_win_ffm" --icon="src/onthespot/resources/icon.png" src\portable.py
 ) else (
     echo  =^> Building to use ffmpeg binary from system...
-    pyinstaller --onefile --noconfirm --add-data="gui/qtui/*.ui;gui/qtui" --add-data="resources/*.png;resources" --paths="." --name="onthespot_win" --icon="resources/icon.png" __init__.py
+    pyinstaller --noconsole --onefile --noconfirm --add-data="src/onthespot/gui/qtui/*.ui;onthespot/gui/qtui" --add-data="src/onthespot/resources/*.png;onthespot/resources" --paths="src/onthespot" --name="onthespot_win" --icon="src/onthespot/resources/icon.png" src\portable.py
 )
 echo  =^> Cleaning..
 del /F /Q /A onthespot_win.spec
+del /F /Q /A onthespot_win_ffm.spec
 rmdir build /s /q
 rmdir __pycache__ /s /q
 echo  =^> Done

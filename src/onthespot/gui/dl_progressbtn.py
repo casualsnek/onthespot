@@ -1,6 +1,6 @@
 import os
 from PyQt5.QtWidgets import QHBoxLayout, QWidget
-from runtimedata import downloaded_data, cancel_list, failed_downloads, downloads_status, download_queue
+from ..runtimedata import downloaded_data, cancel_list, failed_downloads, downloads_status, download_queue
 from showinfm import show_in_file_manager
 
 

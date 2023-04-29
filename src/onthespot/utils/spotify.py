@@ -1,8 +1,8 @@
 import string
 import subprocess
-from exceptions import *
+from ..exceptions import *
 import requests.adapters
-from otsconfig import config
+from ..otsconfig import config
 import requests
 import json
 import music_tag
@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 from PIL import Image
 from io import BytesIO
-from runtimedata import get_logger, rt_cache
+from ..runtimedata import get_logger, rt_cache
 from librespot.audio.decoders import AudioQuality
 
 logger = get_logger("spotutils")
@@ -146,9 +146,19 @@ def convert_audio_format(filename, quality):
         bitrate = "320k" if quality == AudioQuality.VERY_HIGH else "160k"
         temp_name = os.path.join(target_path.parent, ".~"+target_path.stem+".ogg")
         os.rename(filename, temp_name)
-        subprocess.check_call(
-            f"\"{config.get('_ffmpeg_bin_path')}\" -i \"{sanitize_data(temp_name, allow_path_separators=True, escape_quotes=True)}\" -ar 44100 -ac 2 -b:a {bitrate} {config.get('ffmpeg_args').strip()} \"{sanitize_data(filename, allow_path_separators=True, escape_quotes=True)}\"",
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, shell=True)
+        # Prepare default parameters
+        command = [
+            config.get('_ffmpeg_bin_path'),
+            '-i', sanitize_data(temp_name, allow_path_separators=True, escape_quotes=True),
+            '-ar', '44100', '-ac', '2', '-b:a', bitrate,
+        ] 
+        # Add user defined parameters
+        for param in config.get('ffmpeg_args'):
+            command.append(param)
+        # Add output parameter at last
+        logger.info(f'Converting media with ffmpeg. Built commandline {command} ')
+        command.append( sanitize_data(filename, allow_path_separators=True, escape_quotes=True) )
+        subprocess.check_call(command, shell=False)
         os.remove(temp_name)
     else:
         raise FileNotFoundError
@@ -157,7 +167,7 @@ def convert_audio_format(filename, quality):
 def conv_artist_format(artists):
     formatted = ""
     for artist in artists:
-        formatted += artist + ", "
+        formatted += artist + config.get('metadata_seperator')+" "
     return formatted[:-2].strip()
 
 

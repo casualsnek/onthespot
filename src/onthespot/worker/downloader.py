@@ -11,11 +11,11 @@ from librespot.audio.decoders import AudioQuality, VorbisOnlyAudioQuality
 from librespot.metadata import TrackId, EpisodeId
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 
-from otsconfig import config
-from runtimedata import get_logger, cancel_list, failed_downloads, unavailable, session_pool
-from utils.spotify import check_premium, get_song_info, convert_audio_format, set_music_thumbnail, set_audio_tags, \
+from ..otsconfig import config
+from ..runtimedata import get_logger, cancel_list, failed_downloads, unavailable, session_pool
+from ..utils.spotify import check_premium, get_song_info, convert_audio_format, set_music_thumbnail, set_audio_tags, \
     get_episode_info, get_track_lyrics
-from utils.utils import re_init_session
+from ..utils.utils import re_init_session
 
 
 class DownloadWorker(QObject):
@@ -57,7 +57,7 @@ class DownloadWorker(QObject):
                     artist=_artist,
                     rel_year=song_info['release_year'],
                     album=song_info['album_name'],
-                    genre=song_info['genre'],
+                    genre=song_info['genre'][0] if len(song_info['genre']) > 0 else '',
                     label=song_info['label'],
                     trackcount=song_info['total_tracks'],
                     playlist_name=playlist_name,
@@ -73,7 +73,7 @@ class DownloadWorker(QObject):
                 disc_number=song_info['disc_number'],
                 track_number=song_info['track_number'],
                 spotid=song_info['scraped_song_id'],
-                genre=song_info['genre'],
+                genre=song_info['genre'][0] if len(song_info['genre']) > 0 else '',
                 label=song_info['label'],
                 explicit='Explicit' if song_info['explicit'] else '',
                 trackcount=song_info['total_tracks'],
@@ -200,12 +200,12 @@ class DownloadWorker(QObject):
                 f"Network timeout from spotify for track by id '{trk_track_id_str}', download will be retried !")
             self.progress.emit([trk_track_id_str, "Timeout. Will retry", None])
             return None
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as exc:
             if os.path.exists(filename):
                 os.remove(filename)
             self.logger.error(
                 f"Decoding error for track by id '{trk_track_id_str}', "
-                f"possibly due to use of rate limited spotify account !"
+                f"possibly due to use of rate limited spotify account ! {exc.returncode} | {exc.output}"
             )
             self.progress.emit([trk_track_id_str, "Decode error. Will retry", None])
             traceback.print_exc()
@@ -296,6 +296,16 @@ class DownloadWorker(QObject):
                         f"Downloading failed for episode by id '{episode_id_str}', partial download failed !")
                     self.progress.emit([episode_id_str, "Failed", [0, 100]])
                     return False
+            except subprocess.CalledProcessError as exc:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                self.logger.error(
+                    f"Decoding error for track by id '{episode_id_str}', "
+                    f"possibly due to use of rate limited spotify account ! {exc.returncode} | {exc.output}"
+                )
+                self.progress.emit([episode_id_str, "Decode error. Will retry", None])
+                traceback.print_exc()
+                return None
             except Exception:
                 self.logger.error(
                     f"Downloading failed for episode by id "
@@ -310,8 +320,8 @@ class DownloadWorker(QObject):
             item = self.__queue.get()
             attempt = 0
             self.__last_cancelled = status = False
-            while attempt < config.get("max_retries") and status is False:
-                self.logger.info(f"Processing download for track by id '{item['media_id']}', Attempt: {attempt}")
+            while attempt < config.get("max_retries") and status is not True:
+                self.logger.info(f"Processing download for track by id '{item['media_id']}', Attempt: {attempt}/{config.get('max_retries')}")
                 attempt = attempt + 1
                 status = False
                 self.progress.emit([item['media_id'], "Downloading", None])
@@ -338,13 +348,14 @@ class DownloadWorker(QObject):
                 except (OSError, queue.Empty, MaxRetryError, NewConnectionError, ConnectionError, socket.gaierror,
                         ConnectionResetError):
                     # Internet disconnected ?
-                    self.logger.error('DL failed.. Connection error ! Trying to re init parsing account session ! ')
+                    self.logger.error(f'DL failed.. Connection error ! Trying to re init account session {self.__session_uuid} ! ')
                     re_init_session(session_pool, self.__session_uuid, wait_connectivity=True, timeout=120)
 
                 if status is None:  # This needs to be cleaned up, current versions retry for False too
                     if attempt < config.get("max_retries"):  # 2 < 2
                         wait_ = int(time.time()) + config.get("recoverable_fail_wait_delay")
-                        while wait_ > int(time.time()):
+                        while wait_ - int(time.time()) > 0:
+                            self.logger.error(f"Retrying '{item['media_id']}' in {wait_ - int(time.time())} sec")
                             self.progress.emit(
                                 [item['media_id'], f"Retrying in {wait_ - int(time.time())} sec", [0, 100]]
                             )

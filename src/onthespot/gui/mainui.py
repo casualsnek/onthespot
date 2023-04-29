@@ -5,14 +5,14 @@ import uuid
 from PyQt5 import uic, QtNetwork, QtGui
 from PyQt5.QtCore import QThread
 from PyQt5.QtWidgets import QMainWindow, QHeaderView, QLabel, QPushButton, QProgressBar, QTableWidgetItem, QFileDialog
-from exceptions import EmptySearchResultException
-from utils.spotify import search_by_term, get_thumbnail
-from utils.utils import name_by_from_sdata, login_user, remove_user, get_url_data, re_init_session
-from worker import LoadSessions, ParsingQueueProcessor, MediaWatcher, PlayListMaker, DownloadWorker
+from ..exceptions import EmptySearchResultException
+from ..utils.spotify import search_by_term, get_thumbnail
+from ..utils.utils import name_by_from_sdata, login_user, remove_user, get_url_data, re_init_session
+from ..worker import LoadSessions, ParsingQueueProcessor, MediaWatcher, PlayListMaker, DownloadWorker
 from .dl_progressbtn import DownloadActionsButtons
 from .minidialog import MiniDialog
-from otsconfig import config
-from runtimedata import get_logger, download_queue, downloads_status, downloaded_data, failed_downloads, cancel_list, \
+from ..otsconfig import config
+from ..runtimedata import get_logger, download_queue, downloads_status, downloaded_data, failed_downloads, cancel_list, \
     session_pool, thread_pool
 from .thumb_listitem import LabelWithThumb
 from urllib3.exceptions import MaxRetryError, NewConnectionError

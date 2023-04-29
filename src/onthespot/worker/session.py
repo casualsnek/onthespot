@@ -1,9 +1,9 @@
 import os
 import time
 from PyQt5.QtCore import QObject, pyqtSignal
-from otsconfig import config
-from runtimedata import session_pool, get_logger
-from utils.utils import login_user
+from ..otsconfig import config
+from ..runtimedata import session_pool, get_logger
+from ..utils.utils import login_user
 
 logger = get_logger("worker.session")
 

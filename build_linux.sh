@@ -18,27 +18,28 @@ pip install -r requirements.txt
 if [ -f "ffbin_nix/ffmpeg" ]; then
     echo " => Found 'ffbin_win' directory and ffmpeg binary.. Using ffmpeg binary append mode "
     pyinstaller --onefile \
-                --add-data="gui/qtui/*.ui:qui/qtui" \
-                --add-data="resources/*.png:resources" \
-                --add-binary="ffbin_nix/*:bin/ffmpeg" \
-                --paths="." \
+                --add-data="src/onthespot/gui/qtui/*.ui:onthespot/gui/qtui" \
+                --add-data="src/onthespot/resources/*.png:onthespot/resources" \
+                --add-binary="ffbin_nix/*:onthespot/bin/ffmpeg" \
+                --paths="src/onthespot" \
                 --name="onthespot_linux_ffm" \
-                --icon="resources/icon.png" \
-                __init__.py
+                --icon="src/onthespot/resources/icon.png" \
+                src/portable.py
 else
     echo " => Building to use ffmpeg binary from system... "
     pyinstaller --onefile \
-                --add-data="gui/qtui/*.ui:gui/qtui" \
-                --add-data="resources/*.png:resources" \
-                --paths="." \
+                --add-data="src/onthespot/gui/qtui/*.ui:onthespot/gui/qtui" \
+                --add-data="src/onthespot/resources/*.png:onthespot/resources" \
+                --paths="src/onthespot" \
                 --name="onthespot_linux" \
-                --icon="resources/icon.png" \
-                __init__.py
+                --icon="src/onthespot/resources/icon.png" \
+                src/portable.py
 fi
 echo " => Setting permissions.. "
 chmod +x ./dist/onthespot_linux
 echo " => Cleaning.. "
 rm onthespot_linux.spec
+rm onthespot_linux_ffm.spec
 rm -rf ./build
 rm -rf __pycache__
 echo " => Done "

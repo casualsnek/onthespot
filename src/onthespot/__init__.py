@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import sys
 from PyQt5.QtWidgets import QApplication
-from gui.mainui import MainWindow
-from gui.minidialog import MiniDialog
-from runtimedata import get_logger
+from .gui.mainui import MainWindow
+from .gui.minidialog import MiniDialog
+from .runtimedata import get_logger
 
 
 def main():

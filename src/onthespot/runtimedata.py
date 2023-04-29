@@ -1,5 +1,5 @@
 from queue import Empty, Queue
-from otsconfig import config
+from .otsconfig import config
 import sys, os
 import logging
 from logging.handlers import RotatingFileHandler

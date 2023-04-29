@@ -1,12 +1,11 @@
 import os
 import platform
 import time
-
 import requests
 from librespot.core import Session
 import re
-from runtimedata import get_logger
-from utils.spotify import search_by_term
+from ..runtimedata import get_logger
+from .spotify import search_by_term
 import subprocess
 import asyncio
 
