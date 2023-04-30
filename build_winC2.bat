@@ -5,7 +5,6 @@ pip install wheel
 pip install pyinstaller
 echo  =^> Installing dependencies pip...
 pip install winsdk
-pip install simpleaudio
 pip install -r requirements.txt
 if exist ffbin_win\ffmpeg.exe (
     echo =^> Found 'ffbin_win' directory and ffmpeg binary.. Using ffmpeg binary append mode
