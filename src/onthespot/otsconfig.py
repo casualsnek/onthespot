@@ -18,7 +18,7 @@ class Config:
         print('OTS Version : ', self.version)
         self.__template_data = {
             "version": 0.5, # Application version
-            "max_threads": 1, # Maximum number of thread we can spwan
+            "max_threads": 1, # Maximum number of thread we can spawn
             "parsing_acc_sn": 1, # Serial number of account that will be used for parsing links
             "download_root": os.path.join(os.path.expanduser("~"), "Music", "OnTheSpot"), # Root dir for downloads
             "download_delay": 5, # Seconds to wait before next download
@@ -56,8 +56,6 @@ class Config:
         self.__run_migration()
         print('Config version: ', self.__config['version'])
         os.makedirs(self.get("download_root"), exist_ok=True)
-        os.makedirs(os.path.dirname(self.get("log_file")), exist_ok=True)
-
         # Set ffmpeg path
         self.app_root = os.path.dirname(os.path.realpath(__file__))
         if os.path.isfile(os.path.join(self.app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)):
