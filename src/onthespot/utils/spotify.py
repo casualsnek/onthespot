@@ -65,19 +65,13 @@ def get_track_lyrics(session, track_id, forced_synced):
 def get_tracks_from_playlist(session, playlist_id):
     logger.info(f"Get tracks from playlist by id '{playlist_id}'")
     songs = []
-    offset = 0
-    limit = 100
     access_token = session.tokens().get("user-read-email")
     headers = {'Authorization': f'Bearer {access_token}'}
-    while True:
-        params = {'limit': limit, 'offset': offset}
-        resp = make_call(f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks', token=access_token, params=params)
-        offset += limit
+    url = f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks'
+    while url:
+        resp = make_call(url, token=access_token)
         songs.extend(resp['items'])
-
-        if len(resp['items']) < limit:
-            break
-
+        url = resp['next']
     return songs
 
 
