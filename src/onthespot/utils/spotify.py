@@ -84,9 +84,11 @@ def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
         value = value.replace(i, '')
     if os.name == 'nt':
         value = value.replace('|', '-')
-        if value[0].lower() in string.ascii_lowercase and value[1] == ":" and value[2] == '\\':
-            # Beginning of win path like C:\, skip first column then remove all other colons
-            value = value[:2] + value[2:].replace(':', '-')
+        drive_letter, tail = os.path.splitdrive(value)
+        value = os.path.join(
+            drive_letter if drive_letter is not None else '',
+            tail.replace(':', '-')
+        )
         else:
             value = value.replace(':', '-')
         value = value.rstrip('.')
@@ -141,7 +143,7 @@ def convert_audio_format(filename, quality):
             config.get('_ffmpeg_bin_path'),
             '-i', sanitize_data(temp_name, allow_path_separators=True, escape_quotes=True),
             '-ar', '44100', '-ac', '2', '-b:a', bitrate,
-        ] 
+        ]
         # Add user defined parameters
         for param in config.get('ffmpeg_args'):
             command.append(param)
@@ -328,5 +330,5 @@ def make_call(url, token, params=None):
     if params is None:
         params = {}
     if url not in rt_cache['REQurl']:
-        rt_cache['REQurl'][url] = json.loads(requests.get(url, headers={"Authorization": "Bearer %s" % token}, params=params).text)         
+        rt_cache['REQurl'][url] = json.loads(requests.get(url, headers={"Authorization": "Bearer %s" % token}, params=params).text)
     return rt_cache['REQurl'][url]
