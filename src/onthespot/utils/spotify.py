@@ -89,8 +89,6 @@ def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
             drive_letter if drive_letter is not None else '',
             tail.replace(':', '-')
         )
-        else:
-            value = value.replace(':', '-')
         value = value.rstrip('.')
     else:
         if escape_quotes and '"' in value:
@@ -141,14 +139,14 @@ def convert_audio_format(filename, quality):
         # Prepare default parameters
         command = [
             config.get('_ffmpeg_bin_path'),
-            '-i', sanitize_data(temp_name, allow_path_separators=True, escape_quotes=True),
+            '-i', sanitize_data(temp_name, allow_path_separators=True, escape_quotes=False),
             '-ar', '44100', '-ac', '2', '-b:a', bitrate,
         ]
         # Add user defined parameters
         for param in config.get('ffmpeg_args'):
             command.append(param)
         # Add output parameter at last
-        command.append( sanitize_data(filename, allow_path_separators=True, escape_quotes=True) )
+        command.append( sanitize_data(filename, allow_path_separators=True, escape_quotes=False) )
         logger.info(f'Converting media with ffmpeg. Built commandline {command} ')
         subprocess.check_call(command, shell=False)
         os.remove(temp_name)
