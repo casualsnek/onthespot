@@ -3,7 +3,7 @@ import queue
 import time
 import uuid
 from PyQt5 import uic, QtNetwork, QtGui
-from PyQt5.QtCore import QThread
+from PyQt5.QtCore import QThread, QDir
 from PyQt5.QtWidgets import QMainWindow, QHeaderView, QLabel, QPushButton, QProgressBar, QTableWidgetItem, QFileDialog
 from ..exceptions import EmptySearchResultException
 from ..utils.spotify import search_by_term, get_thumbnail
@@ -249,7 +249,7 @@ class MainWindow(QMainWindow):
 
     def __select_dir(self):
         dir_path = QFileDialog.getExistingDirectory(None, 'Select a folder:', os.path.expanduser("~"))
-        self.inp_download_root.setText(dir_path)
+        self.inp_download_root.setText(QDir.toNativeSeparators(dir_path))
 
     def __toggle_advanced(self):
         self.__advanced_visible = False if self.__advanced_visible else True
