@@ -4,7 +4,7 @@ charset-normalizer==3.1.0
 defusedxml==0.7.1
 idna==3.4
 ifaddr==0.2.0
-librespot==0.0.8
+librespot==0.0.9
 music-tag==0.4.3
 mutagen==1.46.0
 packaging==23.1
