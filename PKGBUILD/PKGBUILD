@@ -1,4 +1,4 @@
-pkgname=python-onthespot
+pkgname=python-onthespot-development
 pkgver=0.5
 _branch="development"
 pkgrel=1
