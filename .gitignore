@@ -27,6 +27,11 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+PKGBUILD/*.xz
+PKGBUILD/*.zip
+PKGBUILD/pkg/
+PKGBUILD/src/
+PKGBUILD/.SRCINFO
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

@@ -1,5 +1,5 @@
 pkgname=python-onthespot
-pkgver=0.27.6
+pkgver=0.5
 _branch="development"
 pkgrel=1
 pkgdesc="Qt based media downloader written in python"
@@ -15,6 +15,10 @@ sha256sums=(SKIP)
 build() {
   cd "onthespot-$_branch"
   python -m build --wheel --no-isolation
+}
+
+pkgver() {
+  grep "self.version = *" "$PWD/onthespot-$_branch/src/onthespot/otsconfig.py" | sed 's/self.version = //g;s/ //g'
 }
 
 package() {

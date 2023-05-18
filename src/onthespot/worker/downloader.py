@@ -84,11 +84,11 @@ class DownloadWorker(QObject):
                 song_name = song_name + "." + config.get("media_format")
             else:
                 song_name = song_name + ".ogg"
-            
+
             dl_root = os.path.abspath(extra_paths) if extra_path_as_root else config.get("download_root")
             # If extra path as root is enabled, extra path is already set as DL root, unset it
             extra_paths = '' if extra_path_as_root else extra_paths.strip()
-            
+
             if ( not extra_path_as_root and force_album_format ) or ( extra_path_as_root and force_album_after_extra_path_as_root ):
                 filename = os.path.join(dl_root, extra_paths, album_root_formatter, song_name)
             else:
@@ -136,9 +136,11 @@ class DownloadWorker(QObject):
                                     file.close()
                                     os.remove(filename)
                                 return False
+                            self.logger.debug(
+                                f"Reading chunk of {_CHUNK_SIZE} bytes from stream  track by id '{trk_track_id_str}'")
                             data = stream.input_stream.stream().read(_CHUNK_SIZE)
                             self.logger.debug(
-                                f"Reading chunk of {_CHUNK_SIZE} bytes for track by id '{trk_track_id_str}'")
+                                f"Got {_CHUNK_SIZE} bytes of data for track by id '{trk_track_id_str}'")
                             downloaded += len(data)
                             if len(data) != 0:
                                 file.write(data)
@@ -242,13 +244,13 @@ class DownloadWorker(QObject):
                 _CHUNK_SIZE = config.get("chunk_size")
                 fail = 0
                 extension = config.get('podcast_media_format', 'mp3')
-                
+
                 podcast_dl_root = os.path.abspath(extra_paths) if extra_path_as_root else os.path.join(config.get("download_root"), config.get("podcast_subdir", "Podcasts"))
                 extra_paths = '' if extra_path_as_root else extra_paths
                 file_path = os.path.join(os.path.abspath(podcast_dl_root), extra_paths, podcast_name, f"{filename}.{extension}")
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                
-                
+
+
                 if os.path.isfile(file_path) and os.path.getsize(file_path) and skip_existing_file:
                     self.logger.info(f"Episode by id '{episode_id_str}', already exists.. Skipping ")
                     self.progress.emit([episode_id_str, "Downloaded", [100, 100], file_path, filename])
