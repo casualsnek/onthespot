@@ -1,0 +1,30 @@
+pkgname=python-onthespot
+pkgver=0.27.6
+_branch="development"
+pkgrel=1
+pkgdesc="Qt based media downloader written in python"
+arch=('any')
+url="https://github.com/casualsnek/onthespot"
+license=('GPLv2')
+depends=('python-requests' 'python-pyqt5' 'python-pillow' 'python-show-in-file-manager' 'python-certifi' 'python-pyxdg')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+optdepends=('python-librespot' 'python-music-tag')
+source=(https://github.com/casualsnek/onthespot/archive/refs/heads/development.zip)
+sha256sums=(SKIP)
+
+build() {
+  cd "onthespot-$_branch"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "onthespot-$_branch"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -dm 755 "$pkgdir/usr/share/applications"
+  install -dm 755 "$pkgdir/usr/share/icons/hicolor/"{256x256,scalable}"/apps/"
+  install -Dm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -Dm 644 "src/onthespot/resources/org.eu.casualsnek.onthespot.desktop" "$pkgdir/usr/share/applications/"
+  install -Dm 644 "src/onthespot/resources/icon.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/casual_onthespot.svg"
+  install -Dm 644 "src/onthespot/resources/icon.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/casual_onthespot.png"
+
+}
