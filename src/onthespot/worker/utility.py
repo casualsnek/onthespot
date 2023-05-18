@@ -32,7 +32,7 @@ class PlayListMaker(QObject):
                                 f'{{play_queue[play_id]["filename"]}}!')
                     # Write the m3u8 header
                     os.makedirs(os.path.dirname(playlist_m3u_queue[play_id]['filename']), exist_ok=True)
-                    with open(playlist_m3u_queue[play_id]['filename'], 'w') as f:
+                    with open(playlist_m3u_queue[play_id]['filename'], 'w', encoding='UTF-8') as f:
                         f.write('#EXTM3U\n')
                     tid = 1
                     for track_id in playlist_m3u_queue[play_id]['tracks']:
@@ -40,7 +40,7 @@ class PlayListMaker(QObject):
                         if track_id in unavailable:
                             logger.info(f'Playlist: {play_id}, track: {track_id}  unavailable for adding, skipping')
                             continue
-                        with open(playlist_m3u_queue[play_id]['filename'], 'a') as f:
+                        with open(playlist_m3u_queue[play_id]['filename'], 'a', encoding='UTF-8') as f:
                             f.write(
                                 f'#EXTINF:{tid}, {downloaded_data[track_id]["media_name"]}\n'
                                 f'{downloaded_data[track_id]["media_path"]}\n'
