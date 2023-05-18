@@ -25,13 +25,16 @@ class LoadSessions(QObject):
             time.sleep(0.2)
             login = login_user(account[0], "",
                                os.path.join(os.path.expanduser('~'), '.cache', 'casualOnTheSpot', 'sessions'), account[3])
-            if login[0]:
-                # Login was successful, add to session pool
-                self.progress.emit(f'Session created for:\n{account[0]}  [{c}/{t}] ', True)
-                time.sleep(0.2)
-                session_pool[account[3]] = login[1]
-                self.__users.append([account[0], 'Premium' if login[3] else 'Free', 'OK', account[3]])
-            else:
+            logged_in = False
+            if login is not None:
+                if login[0]:
+                    # Login was successful, add to session pool
+                    self.progress.emit(f'Session created for:\n{account[0]}  [{c}/{t}] ', True)
+                    time.sleep(0.2)
+                    session_pool[account[3]] = login[1]
+                    self.__users.append([account[0], 'Premium' if login[3] else 'Free', 'OK', account[3]])
+                    logged_in = True
+            if not logged_in:
                 self.progress.emit(f'Failed to create session for:\n{account[0]} (UUID: {account[3]})  [{c}/{t}] ', True)
                 self.__users.append([account[0], "LoginERROR", "ERROR", account[3]])
         self.finished.emit()
