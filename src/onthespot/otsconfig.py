@@ -8,7 +8,7 @@ import uuid
 
 class Config:
     def __init__(self, cfg_path=None):
-        if cfg_path is None:
+        if cfg_path is None or not os.path.isfile(cfg_path):
             cfg_path = os.path.join(os.path.expanduser("~"), ".config", "casualOnTheSpot", "config.json")
         self.__cfg_path = cfg_path
         self.platform = platform.system()
