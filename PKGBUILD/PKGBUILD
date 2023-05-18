@@ -6,9 +6,9 @@ pkgdesc="Qt based media downloader written in python"
 arch=('any')
 url="https://github.com/casualsnek/onthespot"
 license=('GPLv2')
-depends=('python-requests' 'python-pyqt5' 'python-pillow' 'python-show-in-file-manager' 'python-certifi' 'python-pyxdg')
+depends=('python-requests' 'python-pyqt5' 'python-pillow' 'python-show-in-file-manager' 'python-certifi' 'python-pyxdg' 'python-librespot' 'python-music-tag')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
-optdepends=('python-librespot' 'python-music-tag')
+optdepends=()
 source=(https://github.com/casualsnek/onthespot/archive/refs/heads/development.zip)
 sha256sums=(SKIP)
 
