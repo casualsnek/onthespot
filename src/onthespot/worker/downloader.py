@@ -140,7 +140,7 @@ class DownloadWorker(QObject):
                                 f"Reading chunk of {_CHUNK_SIZE} bytes from stream  track by id '{trk_track_id_str}'")
                             data = stream.input_stream.stream().read(_CHUNK_SIZE)
                             self.logger.debug(
-                                f"Got {_CHUNK_SIZE} bytes of data for track by id '{trk_track_id_str}'")
+                                f"Got {len(data)} bytes of data for track by id '{trk_track_id_str}'")
                             downloaded += len(data)
                             if len(data) != 0:
                                 file.write(data)
