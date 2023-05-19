@@ -249,7 +249,8 @@ class MainWindow(QMainWindow):
 
     def __select_dir(self):
         dir_path = QFileDialog.getExistingDirectory(None, 'Select a folder:', os.path.expanduser("~"))
-        self.inp_download_root.setText(QDir.toNativeSeparators(dir_path))
+        if dir_path.strip() != '':
+            self.inp_download_root.setText(QDir.toNativeSeparators(dir_path))
 
     def __toggle_advanced(self):
         self.__advanced_visible = False if self.__advanced_visible else True
@@ -631,7 +632,7 @@ class MainWindow(QMainWindow):
                 "hide_dialogs": hide_dialog,
             }
         }
-        
+
         self.__send_to_pqp(queue_item)
         if not hide_dialog:
             self.__splash_dialog.run(
