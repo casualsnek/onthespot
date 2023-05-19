@@ -200,6 +200,8 @@ def set_music_thumbnail(filename, image_url):
     logger.info(f"Set thumbnail for audio media at '{filename}' with '{image_url}'")
     img = Image.open(BytesIO(requests.get(image_url).content))
     buf = BytesIO()
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
     img.save(buf, format='png')
     buf.seek(0)
     tags = music_tag.load_file(filename)
