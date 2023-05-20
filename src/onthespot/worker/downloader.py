@@ -396,7 +396,7 @@ class DownloadWorker(QObject):
                 time.sleep(config.get("download_delay"))
         self.__stopped = True
         self.logger.info(f"Download worker {self.name} is stopping ")
-        return None
+        self.finished.emit()
 
     def setup(self, thread_name, session_uuid, queue_tracks):
         self.name = thread_name

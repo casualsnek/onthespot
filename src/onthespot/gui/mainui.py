@@ -365,7 +365,7 @@ class MainWindow(QMainWindow):
                                       config, account_uuid, thread_pool, session_pool)
                 if removed:
                     self.tbl_sessions.removeRow(index.row())
-                    self.__users = [user for user in self.__users if user[0] == account[0]]
+                    self.__users = [user for user in self.__users if user[3] != account_uuid]
                     self.__splash_dialog.run(
                         "Account '{}' was removed successfully!\n".format(account[0]))
                 else:
