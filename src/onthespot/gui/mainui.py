@@ -577,8 +577,10 @@ class MainWindow(QMainWindow):
                 with open(search_term, 'r') as sf:
                     links = sf.readlines()
                     for link in links:
+                        logger.info(f'Reading link "{link}" from file at "{search_term}"')
                         self.__download_by_url(link, hide_dialog=True)
                 self.inp_search_term.setText('')
+            return True
         logger.info(f"Search clicked with value term {search_term}")
         if len(session_pool) <= 0:
             self.__splash_dialog.run('You need to login to at least one account to use this feature !')
