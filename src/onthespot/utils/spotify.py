@@ -132,6 +132,9 @@ def get_album_tracks(session, album_id):
 def convert_audio_format(filename, quality):
     if os.path.isfile(os.path.abspath(filename)):
         target_path = Path(filename)
+        if target_path.suffix == '.ogg':
+            # The origin and target formats are same !
+            return None
         bitrate = "320k" if quality == AudioQuality.VERY_HIGH else "160k"
         temp_name = os.path.join(target_path.parent, ".~"+target_path.stem+".ogg")
         if os.path.isfile(temp_name):
