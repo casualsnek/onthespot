@@ -100,7 +100,8 @@ def remove_user(username: str, login_data_dir: str, config, session_uuid: str, t
         logger.info(f'Workers and threads associated with account : {session_uuid} cleaned up !')
         thread_pool.pop(session_uuid)
     # Remove from session pool
-    session_pool.pop(session_uuid)
+    if session_uuid in session_pool:
+        session_pool.pop(session_uuid)
     session_json_path = os.path.join(login_data_dir, f"ots_login_{session_uuid}.json")
     if os.path.isfile(session_json_path):
         os.remove(session_json_path)
