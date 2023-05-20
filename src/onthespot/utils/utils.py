@@ -91,10 +91,13 @@ def remove_user(username: str, login_data_dir: str, config, session_uuid: str, t
     # Try to stop the thread using this account
     if session_uuid in thread_pool.keys():
         thread_pool[session_uuid][0].stop()
+        logger.info(f'Waiting for worker bound to account : {session_uuid} to exit !')
         while not thread_pool[session_uuid][0].is_stopped():
-            # Wait for thread to end its job
-            logger.info(f'Waiting for thread using account : {session_uuid} to exit !')
-            time.sleep(1)
+            time.sleep(0.1)
+        logger.info(f'Waiting for thread bound to worker bound account : {session_uuid} to exit !')
+        while thread_pool[session_uuid][1].isRunning():
+            thread_pool[session_uuid][1].quit()
+        logger.info(f'Workers and threads associated with account : {session_uuid} cleaned up !')
         thread_pool.pop(session_uuid)
     # Remove from session pool
     session_pool.pop(session_uuid)

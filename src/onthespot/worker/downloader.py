@@ -326,10 +326,18 @@ class DownloadWorker(QObject):
     def run(self):
         self.logger.info(f"Download worker {self.name} is running ")
         while not self.__stop:
-            item = self.__queue.get()
+            item = None
+            while not self.__stop :
+                try:
+                    item = self.__queue.get(timeout=0.2)
+                    break
+                except queue.Empty:
+                    pass
+            if self.__stop:
+                break
             attempt = 0
             self.__last_cancelled = status = False
-            while attempt < config.get("max_retries") and status is not True:
+            while attempt < config.get("max_retries") and status is not True and item is not None:
                 self.logger.info(f"Processing download for track by id '{item['media_id']}', Attempt: {attempt}/{config.get('max_retries')}")
                 attempt = attempt + 1
                 status = False
@@ -387,6 +395,8 @@ class DownloadWorker(QObject):
             if not self.__last_cancelled:
                 time.sleep(config.get("download_delay"))
         self.__stopped = True
+        self.logger.info(f"Download worker {self.name} is stopping ")
+        return None
 
     def setup(self, thread_name, session_uuid, queue_tracks):
         self.name = thread_name
@@ -395,6 +405,7 @@ class DownloadWorker(QObject):
         self.logger = get_logger(f"worker.downloader.{thread_name}")
 
     def stop(self):
+        self.logger.warn('Got signal to stop, signaling main func to stop right after current job')
         self.__stop = True
 
     def is_stopped(self):

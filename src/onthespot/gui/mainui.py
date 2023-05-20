@@ -416,6 +416,7 @@ class MainWindow(QMainWindow):
                 thread_pool[session_uuid][0].finished.connect(thread_pool[session_uuid][0].deleteLater)
                 thread_pool[session_uuid][1].finished.connect(thread_pool[session_uuid][1].deleteLater)
                 thread_pool[session_uuid][0].progress.connect(dl_progress_update)
+                thread_pool[session_uuid][0].finished.connect(thread_pool[session_uuid][1].quit)
                 thread_pool[session_uuid][1].start()
             else:
                 logger.debug(f'Session {session_uuid} not used, resource busy !')
