@@ -567,6 +567,9 @@ class MainWindow(QMainWindow):
     def __get_search_results(self):
         search_term = self.inp_search_term.text().strip()
         results = None
+        if len(session_pool) <= 0:
+            self.__splash_dialog.run('You need to login to at least one account to use this feature !')
+            return None
         if search_term.startswith('https://'):
             logger.info(f"Search clicked with value with url {search_term}")
             self.__download_by_url(search_term)
@@ -580,11 +583,8 @@ class MainWindow(QMainWindow):
                         logger.info(f'Reading link "{link}" from file at "{search_term}"')
                         self.__download_by_url(link, hide_dialog=True)
                 self.inp_search_term.setText('')
-            return True
+                return True
         logger.info(f"Search clicked with value term {search_term}")
-        if len(session_pool) <= 0:
-            self.__splash_dialog.run('You need to login to at least one account to use this feature !')
-            return None
         try:
             filters = []
             if self.inp_enable_search_playlists.isChecked():
