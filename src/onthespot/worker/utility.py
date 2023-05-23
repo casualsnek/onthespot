@@ -193,7 +193,7 @@ class ParsingQueueProcessor(QObject):
                     item_name = item['data'].get('media_title', name)
                     if not item['data'].get('hide_dialogs', False):
                         self.progress.emit(
-                            f"Tracks in playlist '{item_name}' by {owner['display_name']} is being parsed and "
+                            f"Tracks in playlist '{item_name}' by {owner} is being parsed and "
                             f"will be added to download queue shortly!"
                         )
                     playlist_songs = get_tracks_from_playlist(session,
@@ -210,7 +210,7 @@ class ParsingQueueProcessor(QObject):
                             'filename': os.path.abspath(
                                 os.path.join(
                                     config.get('download_root'),
-                                    config.get('playlist_name_formatter').format(name=name, owner=owner['display_name'],
+                                    config.get('playlist_name_formatter').format(name=name, owner=owner,
                                                                                  description=description) + ".m3u8")
                             ),
                             'tracks': []

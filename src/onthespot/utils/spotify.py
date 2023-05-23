@@ -28,7 +28,7 @@ def get_playlist_data(session, playlist_id):
     logger.info(f"Get playlist dump for '{playlist_id}'")
     access_token = session.tokens().get("user-read-email")
     resp = make_call(f'https://api.spotify.com/v1/playlists/{playlist_id}', token=access_token)
-    return sanitize_data(resp['name']), sanitize_data(resp['owner']), sanitize_data(resp['description']), resp['external_urls']['spotify']
+    return sanitize_data(resp['name']), sanitize_data(resp['owner']['display_name']), sanitize_data(resp['description']), resp['external_urls']['spotify']
 
 
 def get_track_lyrics(session, track_id, forced_synced):
@@ -77,6 +77,8 @@ def get_tracks_from_playlist(session, playlist_id):
 
 
 def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
+    if value is None:
+        return ''
     sanitize = ['*', '?', '\'', '<', '>', '"', '/'] if os.name == 'nt' else []
     if not allow_path_separators:
         sanitize.append(os.path.sep)
@@ -271,7 +273,7 @@ def get_song_info(session, song_id):
         'disc_number': info['tracks'][0]['disc_number'],
         'track_number': info['tracks'][0]['track_number'],
         'total_tracks': info['tracks'][0]['album']['total_tracks'],
-        'total_discs': sorted([trk['disc_number'] for trk in album_data['tracks']['items']])[-1],
+        'total_discs': sorted([trk['disc_number'] for trk in album_data['tracks']['items']])[-1] if 'tracks' in album_data else 1,
         'scraped_song_id': info['tracks'][0]['id'],
         'is_playable': info['tracks'][0]['is_playable'],
         'popularity': info['tracks'][0]['popularity'],
