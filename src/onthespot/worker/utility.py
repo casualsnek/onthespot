@@ -158,7 +158,8 @@ class ParsingQueueProcessor(QObject):
                                 'dl_params': {
                                     'media_type': 'episode',
                                     'extra_paths': item['data'].get('dl_path', ''),
-                                    'extra_path_as_root': item['data'].get('dl_path_is_root', False)
+                                    'extra_path_as_root': item['data'].get('dl_path_is_root', False),
+                                    'force_album_after_extra_path_as_root': enqueue_part_cfg.get('force_album_after_extra_path_as_root', False)
                                 }
                             }
                         )
@@ -179,7 +180,8 @@ class ParsingQueueProcessor(QObject):
                             'dl_params': {
                                 'media_type': 'episode',
                                 'extra_paths': item['data'].get('dl_path', ''),
-                                'extra_path_as_root': item['data'].get('dl_path_is_root', False)
+                                'extra_path_as_root': item['data'].get('dl_path_is_root', False),
+                                'force_album_after_extra_path_as_root': enqueue_part_cfg.get('force_album_after_extra_path_as_root', False)
                             }
                         }
                     )
