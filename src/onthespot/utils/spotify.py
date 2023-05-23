@@ -28,7 +28,7 @@ def get_playlist_data(session, playlist_id):
     logger.info(f"Get playlist dump for '{playlist_id}'")
     access_token = session.tokens().get("user-read-email")
     resp = make_call(f'https://api.spotify.com/v1/playlists/{playlist_id}', token=access_token)
-    return resp['name'], resp['owner'], resp['description'], resp['external_urls']['spotify']
+    return sanitize_data(resp['name']), sanitize_data(resp['owner']), sanitize_data(resp['description']), resp['external_urls']['spotify']
 
 
 def get_track_lyrics(session, track_id, forced_synced):
@@ -107,7 +107,7 @@ def get_album_name(session, album_id):
     if m := re.search(r'(\d{4})', resp['release_date']):
         return resp['artists'][0]['name'], m.group(1), sanitize_data(resp['name']), resp['total_tracks']
     else:
-        return resp['artists'][0]['name'], resp['release_date'], sanitize_data(resp['name']), resp['total_tracks']
+        return sanitize_data(resp['artists'][0]['name']), resp['release_date'], sanitize_data(resp['name']), resp['total_tracks']
 
 
 def get_album_tracks(session, album_id):
