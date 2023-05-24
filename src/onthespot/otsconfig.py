@@ -74,6 +74,7 @@ class Config:
             self.set_('_ffmpeg_bin_path', os.path.abspath(which('ffmpeg')) if which('ffmpeg') else 'ffmpeg' + self.ext_)
         print("Using ffmpeg binary at: ", self.get('_ffmpeg_bin_path'))
         self.set_('_log_file', os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "logs", self.session_uuid, "onthespot.log"))
+        self.set_('_cache_dir', os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot"))
         os.makedirs( os.path.dirname(self.get("_log_file")), exist_ok=True)
 
     def get(self, key, default=None):

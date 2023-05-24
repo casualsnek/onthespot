@@ -1,6 +1,7 @@
 from queue import Empty, Queue
 from .otsconfig import config
-import sys, os
+import sys
+import os
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -26,9 +27,6 @@ downloads_status = {}
 playlist_m3u_queue = {}
 downloaded_data = {}
 unavailable = set()
-rt_cache = {
-    'REQurl': {}
-}
 
 loglevel = int(os.environ.get("LOG_LEVEL", 20))
 

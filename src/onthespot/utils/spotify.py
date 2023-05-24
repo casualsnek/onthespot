@@ -11,7 +11,8 @@ from pathlib import Path
 import re
 from PIL import Image
 from io import BytesIO
-from ..runtimedata import get_logger, rt_cache
+from hashlib import md5
+from ..runtimedata import get_logger
 from librespot.audio.decoders import AudioQuality
 
 logger = get_logger("spotutils")
@@ -336,6 +337,20 @@ def get_thumbnail(image_dict, preferred_size=22500):
 def make_call(url, token, params=None):
     if params is None:
         params = {}
-    if url not in rt_cache['REQurl']:
-        rt_cache['REQurl'][url] = json.loads(requests.get(url, headers={"Authorization": "Bearer %s" % token}, params=params).text)
-    return rt_cache['REQurl'][url]
+    request_key = md5(f'{url}-{";".join( str(key)+":"+str(value) for key, value in params.items() )}'.encode()).hexdigest()
+    req_cache_file = os.path.join(config.get('_cache_dir'), 'reqcache', request_key+'.otcache')
+    os.makedirs(os.path.dirname(req_cache_file), exist_ok=True)
+    if os.path.isfile(req_cache_file):
+        logger.debug(f'URL "{url}" cache found ! HASH: {request_key}')
+        try:
+            with open(req_cache_file, 'r', encoding='utf-8') as cf:
+                json_data = json.load(cf)
+            return json_data
+        except json.JSONDecodeError:
+            logger.error(f'URL "{url}" cache has invalid data, retring request !')
+            pass
+    logger.debug(f'URL "{url}" has cache miss ! HASH: {request_key}; Fetching data')
+    response = requests.get(url, headers={"Authorization": "Bearer %s" % token}, params=params).text
+    with open(req_cache_file, 'w', encoding='utf-8') as cf:
+        cf.write(response)
+    return json.loads(response)
