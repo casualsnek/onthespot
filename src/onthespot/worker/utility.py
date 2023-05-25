@@ -89,13 +89,13 @@ class ParsingQueueProcessor(QObject):
     def run(self):
         logger.info('Parsing queue processor is active !')
         while not self.__stop:
+            logger.info('Waiting for new item to parse')
             item = self.__queue.get()
             parsing_index = item.get('override_parsing_acc_sn', config.get("parsing_acc_sn") - 1)
             selected_uuid = config.get('accounts')[parsing_index][3]
+            logger.debug(f'Got data to parse: {str(item)}')
             try:
                 session = session_pool[selected_uuid]
-                logger.debug(f'Got data to parse: {str(item)}')
-
                 if item['media_type'] == 'album':
                     artist, album_release_date, album_name, total_tracks = get_album_name(session, item['media_id'])
                     item_name = item['data'].get('media_title', album_name)
@@ -222,7 +222,7 @@ class ParsingQueueProcessor(QObject):
                             self.enqueue_tracks([song['track']], enqueue_part_cfg=enqueue_part_cfg,
                                                 log_id=f'{item_name}:{item["media_id"]}', item_type=f"Playlist [{name}]")
                     if not item['data'].get('hide_dialogs', False):
-                        self.progress.emit(f"Added playlist '{item_name}' by {owner['display_name']} to download queue !")
+                        self.progress.emit(f"Added playlist '{item_name}' by {owner} to download queue !")
                 elif item['media_type'] == 'track':
                     song_info = get_song_info(session, item['media_id'])
                     name = song_info['name']
@@ -243,11 +243,13 @@ class ParsingQueueProcessor(QObject):
                                         log_id=f'{name}:{item["media_id"]}', item_type="Track")
                     if not item['data'].get('hide_dialogs', False):
                         self.progress.emit(f"Added track '{name}' to download queue !")
+                logger.info('Finished parsing this item !')
             except (OSError, queue.Empty, MaxRetryError, NewConnectionError, ConnectionError):
                 # Internet disconnected ?
                 logger.error('Item parsing failed.. Connection error ! Trying to re init parsing account session ! ')
                 re_init_session(session_pool, selected_uuid, wait_connectivity=True, timeout=60)
                 self.__queue.put(item)
+        logger.warning('Parsing queue processor is stopping !')
 
     def setup(self, queue):
         self.__queue = queue

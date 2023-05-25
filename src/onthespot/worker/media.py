@@ -24,6 +24,7 @@ class MediaWatcher(QObject):
                 session = session_pool[selected_uuid]
                 spotify_url = get_now_playing_local(session)
                 spotify_url = spotify_url.strip() if spotify_url is not None else ""
+                logger.debug(f'Desktop client is now playing: {spotify_url}')
                 if spotify_url != '' and spotify_url != self.last_url:
                     logger.info(f'Desktop application media changed to: {spotify_url}')
                     self.last_url = spotify_url

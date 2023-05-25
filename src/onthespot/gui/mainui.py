@@ -637,6 +637,7 @@ class MainWindow(QMainWindow):
         }
 
         self.__send_to_pqp(queue_item)
+        logger.info(f'URL "{url}" added to parsing queue')
         if not hide_dialog:
             self.__splash_dialog.run(
                 f"The {media_type.title()} is being parsed and will be added to download queue shortly !")
@@ -755,4 +756,5 @@ class MainWindow(QMainWindow):
                 queue_item['data']['force_album_after_extra_path_as_root'] = self.inp_force_album_after_extra_path_as_root.isChecked()
             except:
                 logger.error('Temp dl path cannot be created !')
+        logger.info('Prepared media for parsing, adding to PQP queue !')
         self.__parsing_queue.put(queue_item)
