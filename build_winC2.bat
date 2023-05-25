@@ -14,8 +14,21 @@ if exist ffbin_win\ffmpeg.exe (
     pyinstaller --onefile --noconfirm --add-data="src/onthespot/gui/qtui/*.ui;onthespot/gui/qtui" --add-data="src/onthespot/resources/*.png;onthespot/resources" --paths="src/onthespot" --name="onthespot_win" --icon="src/onthespot/resources/icon.png" src\portable.py
 )
 echo  =^> Cleaning..
-del /F /Q /A onthespot_win.spec
-del /F /Q /A onthespot_win_ffm.spec
-rmdir build /s /q
-rmdir __pycache__ /s /q
+if exist onthespot_win.spec (
+    del /F /Q /A onthespot_win.spec
+)
+if exist onthespot_win_ffm.spec (
+    del /F /Q /A onthespot_win_ffm.spec
+)
+if exist build\ (
+    rmdir build /s /q
+)
+
+if exist __pycache__\ (
+    rmdir __pycache__ /s /q
+)
+if exist venvwin\ (
+    rmdir venvwin /s /q
+)
+
 echo  =^> Done
