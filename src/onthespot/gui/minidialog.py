@@ -1,7 +1,7 @@
 import os
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog
-from runtimedata import get_logger
+from ..runtimedata import get_logger
 
 logger = get_logger('gui.minidialog')
 

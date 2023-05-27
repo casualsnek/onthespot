@@ -1,14 +1,15 @@
 from queue import Empty, Queue
-from otsconfig import config
-import sys, os
+from .otsconfig import config
+import sys
+import os
 import logging
 from logging.handlers import RotatingFileHandler
-from pydub import AudioSegment
+
 
 log_formatter = logging.Formatter(
-    '[%(asctime)s :: %(pathname)s -> %(lineno)s:%(funcName)20s() :: %(levelname)s] -> %(message)s'
+    '[%(asctime)s :: %(name)s :: %(pathname)s -> %(lineno)s:%(funcName)20s() :: %(levelname)s] -> %(message)s'
 )
-log_handler = RotatingFileHandler(config.get("log_file"),
+log_handler = RotatingFileHandler(config.get("_log_file"),
                                   mode='a',
                                   maxBytes=(5 * 1024 * 1024),
                                   backupCount=2,
@@ -18,8 +19,8 @@ stdout_handler = logging.StreamHandler(sys.stdout)
 log_handler.setFormatter(log_formatter)
 stdout_handler.setFormatter(log_formatter)
 download_queue = Queue()
-thread_pool = []
-session_pool = []
+thread_pool = {}
+session_pool = {}
 failed_downloads = {}
 cancel_list = {}
 downloads_status = {}

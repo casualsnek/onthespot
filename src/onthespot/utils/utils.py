@@ -1,9 +1,11 @@
 import os
 import platform
+import time
+import requests
 from librespot.core import Session
 import re
-from runtimedata import get_logger
-from utils.spotify import search_by_term
+from ..runtimedata import get_logger
+from .spotify import search_by_term
 import subprocess
 import asyncio
 
@@ -14,11 +16,41 @@ logger = get_logger("utils")
 media_tracker_last_query = ''
 
 
-def login_user(username: str, password: str, login_data_dir: str) -> list:
+def re_init_session(session_pool: dict, session_uuid: str, wait_connectivity: bool = False,
+                    connectivity_test_url: str = 'https://spotify.com', timeout=60) -> bool:
+    start = int(time.time())
+    session_json_path = os.path.join(os.path.join(os.path.expanduser('~'), '.cache', 'casualOnTheSpot', 'sessions'),
+                                     f"ots_login_{session_uuid}.json")
+    if not os.path.isfile(session_json_path):
+        return False
+    if wait_connectivity:
+        status = 0
+        while status != 200 and int(time.time()) - start < timeout:
+            try:
+                r = requests.get(connectivity_test_url)
+                status = r.status_code
+                logger.info(f'Connectivity check done ! Status code "{status}" ')
+            except:
+                logger.info('Connectivity issue ! Waiting ... ')
+        if status == 0:
+            return False
+    try:
+        config = Session.Configuration.Builder().set_stored_credential_file(session_json_path).build()
+        logger.debug("Session config created")
+        session = Session.Builder(conf=config).stored_file(session_json_path).create()
+        logger.debug("Session re init done")
+        session_pool[session_uuid] = session
+    except:
+        logger.error('Failed to re init session !')
+        return False
+    return True
+
+
+def login_user(username: str, password: str, login_data_dir: str, uuid: str) -> list:
     logger.info(f"logging in user '{username[:4]}****@****.***'")
     # Check the username and if pickled session file exists load the session and append
     # Returns: [Success: Bool, Session: Session, SessionJsonFile: str, premium: Bool]
-    session_json_path = os.path.join(login_data_dir, username + "_GUZpotifylogin.json")
+    session_json_path = os.path.join(login_data_dir, f"ots_login_{uuid}.json")
     os.makedirs(os.path.dirname(session_json_path), exist_ok=True)
     if os.path.isfile(session_json_path):
         logger.info(f"Session file exists for user, attempting to use it '{username[:4]}****@****.***'")
@@ -33,12 +65,12 @@ def login_user(username: str, password: str, login_data_dir: str) -> list:
             logger.debug("Session created")
             premium = True if session.get_user_attribute("type") == "premium" else False
             logger.info(f"Login successful for user '{username[:4]}****@****.***'")
-            return [True, session, session_json_path, premium]
+            return [True, session, session_json_path, premium, uuid]
         except (RuntimeError, Session.SpotifyAuthenticationException):
             logger.error(f"Failed logging in user '{username[:4]}****@****.***', invalid credentials")
         except Exception:
             logger.error(f"Failed logging in user '{username[:4]}****@****.***', unexpected error !")
-            return [False, None, "", False]
+            return [False, None, "", False, uuid]
     else:
         logger.info(f"Session file does not exist user '{username[:4]}****@****.***', attempting login with uname/pass")
         try:
@@ -47,27 +79,42 @@ def login_user(username: str, password: str, login_data_dir: str) -> list:
             session = Session.Builder(conf=config).user_pass(username, password).create()
             premium = True if session.get_user_attribute("type") == "premium" else False
             logger.info(f"Login successful for user '{username[:4]}****@****.***'")
-            return [True, session, session_json_path, premium]
+            return [True, session, session_json_path, premium, uuid]
         except (RuntimeError, Session.SpotifyAuthenticationException):
             logger.error(f"Failed logging in user '{username[:4]}****@****.***', unexpected error !")
-            return [False, None, "", False]
+            return [False, None, "", False, uuid]
 
 
-def remove_user(username: str, login_data_dir: str, config) -> bool:
-    logger.info(f"Removing user '{username[:4]}****@****.***' from saved entries")
-    session_json_path = os.path.join(login_data_dir, username + "_GUZpotifylogin.json")
+def remove_user(username: str, login_data_dir: str, config, session_uuid: str, thread_pool: dict,
+                session_pool: dict) -> bool:
+    logger.info(f"Removing user '{username[:4]}****@****.***' from saved entries, uuid {session_uuid}")
+    # Try to stop the thread using this account
+    if session_uuid in thread_pool.keys():
+        thread_pool[session_uuid][0].stop()
+        logger.info(f'Waiting for worker bound to account : {session_uuid} to exit !')
+        while not thread_pool[session_uuid][0].is_stopped():
+            time.sleep(0.1)
+        logger.info(f'Waiting for thread bound to worker bound account : {session_uuid} to exit !')
+        while thread_pool[session_uuid][1].isRunning():
+            thread_pool[session_uuid][1].quit()
+        logger.info(f'Workers and threads associated with account : {session_uuid} cleaned up !')
+        thread_pool.pop(session_uuid)
+    # Remove from session pool
+    if session_uuid in session_pool:
+        session_pool.pop(session_uuid)
+    session_json_path = os.path.join(login_data_dir, f"ots_login_{session_uuid}.json")
     if os.path.isfile(session_json_path):
         os.remove(session_json_path)
     removed = False
     accounts_copy = config.get("accounts").copy()
     accounts = config.get("accounts")
     for i in range(0, len(accounts)):
-        if accounts[i][0] == username:
+        if accounts[i][3] == session_uuid:
             accounts_copy.pop(i)
             removed = True
             break
     if removed:
-        logger.info(f"Saved Account user '{username[:4]}****@****.***' found and removed")
+        logger.info(f"Saved Account user '{username[:4]}****@****.***' found and removed, uuid: {session_uuid}")
         config.set_("accounts", accounts_copy)
         config.update()
     return removed
@@ -249,7 +296,7 @@ def get_now_playing_local(session):
 def name_by_from_sdata(d_key: str, item: dict):
     item_name = item_by = None
     if d_key == "tracks":
-        item_name = f"{'[ 18+ ]' if item['explicit'] else '       '} {item['name']}"
+        item_name = f"{'[ E ]' if item['explicit'] else '       '} {item['name']}"
         item_by = f"{','.join([artist['name'] for artist in item['artists']])}"
     elif d_key == "albums":
         rel_year = re.search(r'(\d{4})', item['release_date']).group(1)
@@ -264,22 +311,3 @@ def name_by_from_sdata(d_key: str, item: dict):
             item_name = item['name'] + f"  |  GENERES: {'/'.join(item['genres'])}"
         item_by = f"{item['name']}"
     return item_name, item_by
-
-
-def qt_obj_to_thread(thread, obj, start=[], finish=[], progress=[], enqueue=[], begin=True):
-    obj.moveToThread(thread)
-    thread.started.connect(obj.run)
-    for func in start:
-        thread.started.connect(func)
-    obj.finished.connect(thread.quit)
-    obj.finished.connect(obj.deleteLater)
-    for func in finish:
-        obj.finished.connect(func)
-    thread.finished.connect(thread.deleteLater)
-    for func in progress:
-        obj.progress.connect(func)
-    for func in progress:
-        obj.enqueue.connect(func)
-    if begin:
-        thread.start()
-    pass

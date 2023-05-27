@@ -20,6 +20,7 @@ lib64/
 parts/
 sdist/
 var/
+release/
 wheels/
 pip-wheel-metadata/
 share/python-wheels/
@@ -27,6 +28,11 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+PKGBUILD/*.xz
+PKGBUILD/*.zip
+PKGBUILD/pkg/
+PKGBUILD/src/
+PKGBUILD/.SRCINFO
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -105,6 +111,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.idea
 env/
 venv*/
 ENV/

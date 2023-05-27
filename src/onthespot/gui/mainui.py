@@ -1,19 +1,21 @@
 import os
 import queue
 import time
-from PyQt5 import uic
-from PyQt5.QtCore import QThread
+import uuid
+from PyQt5 import uic, QtNetwork, QtGui
+from PyQt5.QtCore import QThread, QDir
 from PyQt5.QtWidgets import QMainWindow, QHeaderView, QLabel, QPushButton, QProgressBar, QTableWidgetItem, QFileDialog
-
-from exceptions import EmptySearchResultException
-from utils.spotify import search_by_term
-from utils.utils import name_by_from_sdata, login_user, remove_user, get_url_data
-from worker import LoadSessions, ParsingQueueProcessor, MediaWatcher, PlayListMaker, DownloadWorker
+from ..exceptions import EmptySearchResultException
+from ..utils.spotify import search_by_term, get_thumbnail
+from ..utils.utils import name_by_from_sdata, login_user, remove_user, get_url_data, re_init_session
+from ..worker import LoadSessions, ParsingQueueProcessor, MediaWatcher, PlayListMaker, DownloadWorker
 from .dl_progressbtn import DownloadActionsButtons
 from .minidialog import MiniDialog
-from otsconfig import config
-from runtimedata import get_logger, download_queue, downloads_status, downloaded_data, failed_downloads, cancel_list, \
+from ..otsconfig import config
+from ..runtimedata import get_logger, download_queue, downloads_status, downloaded_data, failed_downloads, cancel_list, \
     session_pool, thread_pool
+from .thumb_listitem import LabelWithThumb
+from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 logger = get_logger('gui.main_ui')
 
@@ -73,11 +75,15 @@ def cancel_all_downloads():
 
 class MainWindow(QMainWindow):
 
-    def __init__(self, _dialog):
+    def __init__(self, _dialog, start_url=''):
         super(MainWindow, self).__init__()
         self.path = os.path.dirname(os.path.realpath(__file__))
+        icon_path = os.path.join(config.app_root, 'resources', 'icon.png')
         uic.loadUi(os.path.join(self.path, "qtui", "main.ui"), self)
-        logger.info("Initialising main window")
+        self.setWindowIcon(QtGui.QIcon(icon_path))
+        self.start_url = start_url
+        self.inp_session_uuid.setText(config.session_uuid)
+        logger.info(f"Initialising main window, logging session : {config.session_uuid}")
         self.group_search_items.hide()
         # Bind button click
         self.bind_button_inputs()
@@ -86,6 +92,7 @@ class MainWindow(QMainWindow):
         self.__playlist_maker = None
         self.__media_watcher_thread = None
         self.__media_watcher = None
+        self.__qt_nam = QtNetwork.QNetworkAccessManager()
         # Variable to store data for class use
         self.__users = []
         self.__parsing_queue = queue.Queue()
@@ -124,7 +131,6 @@ class MainWindow(QMainWindow):
         self.__media_parser_thread.started.connect(self.__media_parser_worker.run)
         self.__media_parser_worker.finished.connect(self.__media_parser_thread.quit)
         self.__media_parser_worker.finished.connect(self.__media_parser_worker.deleteLater)
-        self.__media_parser_worker.finished.connect(self.__session_load_done)
         self.__media_parser_thread.finished.connect(self.__media_parser_thread.deleteLater)
         self.__media_parser_worker.progress.connect(self.__show_popup_dialog)
         self.__media_parser_worker.enqueue.connect(self.__add_item_to_downloads)
@@ -155,6 +161,7 @@ class MainWindow(QMainWindow):
         self.btn_progress_clear_complete.clicked.connect(self.rem_complete_from_table)
         self.btn_search_download_playlists.clicked.connect(lambda x, cat="playlists": self.__mass_action_dl(cat))
         self.btn_search_filter_toggle.clicked.connect(lambda toggle: self.group_search_items.show() if self.group_search_items.isHidden() else self.group_search_items.hide())
+        self.btn_search_filter_toggle.clicked.connect(lambda switch: self.btn_search_filter_toggle.setText("↓") if self.group_search_items.isHidden() else self.btn_search_filter_toggle.setText("↑"))
         # Connect checkbox state change signals
         self.inp_create_playlists.stateChanged.connect(self.__m3u_maker_set)
         self.inp_enable_spot_watch.stateChanged.connect(self.__media_watcher_set)
@@ -169,7 +176,7 @@ class MainWindow(QMainWindow):
         tbl_sessions_header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         # Search results table
         tbl_search_results_headers = self.tbl_search_results.horizontalHeader()
-        tbl_search_results_headers.setSectionResizeMode(0, QHeaderView.Stretch)
+        tbl_search_results_headers.setSectionResizeMode(0, QHeaderView.Interactive)
         tbl_search_results_headers.setSectionResizeMode(1, QHeaderView.Stretch)
         tbl_search_results_headers.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         tbl_search_results_headers.setSectionResizeMode(3, QHeaderView.ResizeToContents)
@@ -242,7 +249,8 @@ class MainWindow(QMainWindow):
 
     def __select_dir(self):
         dir_path = QFileDialog.getExistingDirectory(None, 'Select a folder:', os.path.expanduser("~"))
-        self.inp_download_root.setText(dir_path)
+        if dir_path.strip() != '':
+            self.inp_download_root.setText(QDir.toNativeSeparators(dir_path))
 
     def __toggle_advanced(self):
         self.__advanced_visible = False if self.__advanced_visible else True
@@ -294,7 +302,12 @@ class MainWindow(QMainWindow):
                 'extra_paths': item['dl_params']['extra_paths'],
                 'force_album_format': config.get('playlist_track_force_album_dir'),
                 'extra_path_as_root': item['dl_params']['extra_path_as_root'],
-                'm3u_filename': ''
+                'force_album_after_extra_path_as_root': item['dl_params']['force_album_after_extra_path_as_root'],
+                'm3u_filename': '',
+                'playlist_name': item['dl_params'].get('playlist_name', ''),
+                'playlist_owner': item['dl_params'].get('playlist_owner', ''),
+                'playlist_desc': item['dl_params'].get('playlist_desc', '')
+
             }
         )
         downloads_status[item['item_id']] = {
@@ -332,30 +345,35 @@ class MainWindow(QMainWindow):
         self.__splash_dialog.btn_close.show()
         self.__generate_users_table(self.__users)
         self.show()
+        if self.start_url.strip() != '':
+            logger.info(f'Session was started with query of {self.start_url}')
+            self.inp_search_term.setText(self.start_url.strip())
+            self.__get_search_results()
+        self.start_url = ''
         # Build threads
         self.__rebuild_threads()
 
-    def __user_table_remove_click(self):
+    def __user_table_remove_click(self, account_uuid):
         button = self.sender()
         index = self.tbl_sessions.indexAt(button.pos())
-        logger.debug("Clicked account remove button !")
-        if index.isValid():
-            logger.info("Removed clicked for valid item ->" + self.tbl_sessions.item(index.row(), 0).text())
-            username = self.tbl_sessions.item(index.row(), 0).text()
-            removed = remove_user(username,
-                                  os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "sessions"),
-                                  config)
-            if removed:
-                self.tbl_sessions.removeRow(index.row())
-                self.__users = [user for user in self.__users if user[0] == username]
-                self.__splash_dialog.run(
-                    "Account '{}' was removed successfully!\n"
-                    "This account session will remain used until application restart.".format(username))
-            else:
-                self.__splash_dialog.run(
-                    "Something went wrong while removing account with username '{}' !".format(username))
+        # TODO: Wait for thread using the account, then remove thread as well as the account
+        logger.debug(f"Clicked account remove button ! uuid: {account_uuid}")
+        for account in config.get('accounts'):
+            if account[3] == account_uuid:
+                removed = remove_user(account[0],
+                                      os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "sessions"),
+                                      config, account_uuid, thread_pool, session_pool)
+                if removed:
+                    self.tbl_sessions.removeRow(index.row())
+                    self.__users = [user for user in self.__users if user[3] != account_uuid]
+                    self.__splash_dialog.run(
+                        "Account '{}' was removed successfully!\n".format(account[0]))
+                else:
+                    self.__splash_dialog.run(
+                        "Something went wrong while removing account with username '{}' !".format(account[0]))
 
     def __generate_users_table(self, userdata):
+
         # Clear the table
         while self.tbl_sessions.rowCount() > 0:
             self.tbl_sessions.removeRow(0)
@@ -364,7 +382,7 @@ class MainWindow(QMainWindow):
             sn = sn + 1
             btn = QPushButton(self.tbl_sessions)
             btn.setText(" Remove ")
-            btn.clicked.connect(self.__user_table_remove_click)
+            btn.clicked.connect(lambda x, account_uuid=user[3]: self.__user_table_remove_click(account_uuid))
             btn.setMinimumHeight(30)
             rows = self.tbl_sessions.rowCount()
             br = "N/A"
@@ -381,40 +399,30 @@ class MainWindow(QMainWindow):
         logger.info("Accounts table was populated !")
 
     def __rebuild_threads(self):
-        # Wait for all threads to close then rebuild threads
-        logger.info("Building downloader.py threads")
-        if len(session_pool) > 0:
-            logger.warning("Session pool not empty ! Reset not implemented")
-            if len(thread_pool) == 0:
-                # Build threads now
-                logger.info(f"Spawning {config.get('max_threads')} downloaders !")
-                for i in range(0, config.get("max_threads")):
-                    session_index = None
-                    t_index = i
-                    while session_index is None:
-                        if t_index >= len(session_pool):
-                            t_index = t_index - len(session_pool)
-                        else:
-                            session_index = t_index
-                    item = [DownloadWorker(), QThread()]
-                    logger.info(f"Spawning DL WORKER {str(i + 1)} using session_index: {t_index}")
-                    item[0].setup(thread_name="DL WORKER " + str(i + 1), session=session_pool[t_index],
-                                  queue_tracks=download_queue)
-                    item[0].moveToThread(item[1])
-                    item[1].started.connect(item[0].run)
-                    item[0].finished.connect(item[1].quit)
-                    item[0].finished.connect(item[0].deleteLater)
-                    item[1].finished.connect(item[1].deleteLater)
-                    item[0].progress.connect(dl_progress_update)
-                    item[1].start()
-                    thread_pool.append(item)
+        # Check how many threads can we build till we reach max thread
+        logger.debug(f'Thread builder -> TPool count : {len(thread_pool)}, SPool count : {len(session_pool)}, MaxT : {config.get("max_threads")}')
+        for session_uuid in session_pool.keys():
+            if ( len(thread_pool) < config.get('max_threads') ) and session_uuid not in thread_pool.keys():
+                # We have space for new thread and the session is not used by any thread
+                thread_pool[session_uuid] = [DownloadWorker(), QThread()]
+                logger.info(f"Spawning DL thread using session : {session_uuid} ")
+                thread_pool[session_uuid][0].setup(
+                    thread_name=f"SESSION_DL_TH-{session_uuid}",
+                    session_uuid=session_uuid,
+                    queue_tracks=download_queue)
+                thread_pool[session_uuid][0].moveToThread(thread_pool[session_uuid][1])
+                thread_pool[session_uuid][1].started.connect(thread_pool[session_uuid][0].run)
+                thread_pool[session_uuid][0].finished.connect(thread_pool[session_uuid][1].quit)
+                thread_pool[session_uuid][0].finished.connect(thread_pool[session_uuid][0].deleteLater)
+                thread_pool[session_uuid][1].finished.connect(thread_pool[session_uuid][1].deleteLater)
+                thread_pool[session_uuid][0].progress.connect(dl_progress_update)
+                thread_pool[session_uuid][0].finished.connect(thread_pool[session_uuid][1].quit)
+                thread_pool[session_uuid][1].start()
             else:
-                # Signal and wait for threads to terminate and clear pool and call sel
-                pass
-        else:
+                logger.debug(f'Session {session_uuid} not used, resource busy !')
+        if len(session_pool) == 0:
             # Display notice that no session is available and threads are not built
-            self.__splash_dialog.run(
-                "No session available, login to at least one account and click reinit threads button !")
+            self.__splash_dialog.run("No session available for , login to at least one account !")
 
     def __fill_configs(self):
         self.inp_max_threads.setValue(config.get("max_threads"))
@@ -527,26 +535,28 @@ class MainWindow(QMainWindow):
             logger.warning('Account already exists ' + self.inp_login_username.text().strip())
         if self.inp_login_username.text().strip() != '' and self.inp_login_password.text() != '':
             logger.debug('Credentials are not empty !')
+            uuid_uniq = str(uuid.uuid4())
             login = login_user(self.inp_login_username.text().strip(), self.inp_login_password.text(),
-                               os.path.join(os.path.expanduser('~'), '.cache', 'casualOnTheSpot', 'sessions'))
+                               os.path.join(os.path.expanduser('~'), '.cache', 'casualOnTheSpot', 'sessions'), uuid_uniq)
             if login[0]:
                 # Save to config and add to session list then refresh tables
                 cfg_copy = config.get('accounts').copy()
                 new_user = [
                     self.inp_login_username.text().strip(),
                     login[3],
-                    int(time.time())
+                    int(time.time()),
+                    login[4],
                 ]
                 cfg_copy.append(new_user)
                 config.set_('accounts', cfg_copy)
                 config.update()
-                session_pool.append(login[1])
-                self.__splash_dialog.run(
-                    'Logged in successfully ! \n You need to restart application to be able to use this account.'
-                )
+                session_pool[login[4]] = login[1]
+                self.__splash_dialog.run('Logged in successfully ! \n')
                 logger.info(f"Account {self.inp_login_username.text().strip()} added successfully")
-                self.__users.append([self.inp_login_username.text().strip(), 'Premium' if login[3] else 'Free', 'OK'])
+                self.__users.append([self.inp_login_username.text().strip(), 'Premium' if login[3] else 'Free', 'OK',
+                                     login[4]])
                 self.__generate_users_table(self.__users)
+                self.__rebuild_threads()
             else:
                 logger.error(f"Account add failed for : {self.inp_login_username.text().strip()}")
                 self.__splash_dialog.run('Login failed ! Probably invalid username or password.')
@@ -556,14 +566,25 @@ class MainWindow(QMainWindow):
 
     def __get_search_results(self):
         search_term = self.inp_search_term.text().strip()
-        if search_term.startswith('https://'):
-            logger.info(f"Search clicked with value with url {search_term}")
-            self.__download_by_url(search_term)
-            return True
-        logger.info(f"Search clicked with value term {search_term}")
+        results = None
         if len(session_pool) <= 0:
             self.__splash_dialog.run('You need to login to at least one account to use this feature !')
             return None
+        if search_term.startswith('https://'):
+            logger.info(f"Search clicked with value with url {search_term}")
+            self.__download_by_url(search_term)
+            self.inp_search_term.setText('')
+            return True
+        else:
+            if os.path.isfile(search_term):
+                with open(search_term, 'r') as sf:
+                    links = sf.readlines()
+                    for link in links:
+                        logger.info(f'Reading link "{link}" from file at "{search_term}"')
+                        self.__download_by_url(link, hide_dialog=True)
+                self.inp_search_term.setText('')
+                return True
+        logger.info(f"Search clicked with value term {search_term}")
         try:
             filters = []
             if self.inp_enable_search_playlists.isChecked():
@@ -574,10 +595,19 @@ class MainWindow(QMainWindow):
                 filters.append('track')
             if self.inp_enable_search_artists.isChecked():
                 filters.append('artist')
-            results = search_by_term(session_pool[config.get('parsing_acc_sn') - 1], search_term,
+            selected_uuid = config.get('accounts')[ config.get('parsing_acc_sn') - 1 ][3]
+            session = session_pool[ selected_uuid ]
+            try:
+                results = search_by_term(session, search_term,
                                      config.get('max_search_results'), content_types=filters)
+            except (OSError, queue.Empty, MaxRetryError, NewConnectionError, ConnectionError):
+                # Internet disconnected ?
+                logger.error('Search failed Connection error ! Trying to re init parsing account session ! ')
+                re_init_session(session_pool, selected_uuid, wait_connectivity=False)
+                return None
             self.__populate_search_results(results)
             self.__last_search_data = results
+            self.inp_search_term.setText('')
         except EmptySearchResultException:
             self.__last_search_data = []
             while self.tbl_search_results.rowCount() > 0:
@@ -605,26 +635,39 @@ class MainWindow(QMainWindow):
                 "hide_dialogs": hide_dialog,
             }
         }
-        tmp_dl_val = self.inp_tmp_dl_root.text().strip()
-        if self.__advanced_visible and tmp_dl_val != "" and os.path.isdir(tmp_dl_val):
-            queue_item['data']['dl_path'] = tmp_dl_val
-        self.__parsing_queue.put(queue_item)
+
+        self.__send_to_pqp(queue_item)
+        logger.info(f'URL "{url}" added to parsing queue')
         if not hide_dialog:
             self.__splash_dialog.run(
-                f"The {media_type.title()} is being parsed and will be added to download queue shortly ! !")
+                f"The {media_type.title()} is being parsed and will be added to download queue shortly !")
         return True
 
     def __insert_search_result_row(self, btn_text, item_name, item_by, item_type, queue_data):
         btn = QPushButton(self.tbl_search_results)
         btn.setText(btn_text.strip())
-        btn.clicked.connect(lambda x, q_data=queue_data: self.__parsing_queue.put(q_data))
+        btn.clicked.connect(lambda x, q_data=queue_data: self.__send_to_pqp(q_data))
         btn.setMinimumHeight(30)
+
+
         rows = self.tbl_search_results.rowCount()
+        tbl_search_results_headers = self.tbl_search_results.horizontalHeader()
         self.tbl_search_results.insertRow(rows)
-        self.tbl_search_results.setItem(rows, 0, QTableWidgetItem(item_name.rstrip()))
-        self.tbl_search_results.setItem(rows, 1, QTableWidgetItem(item_by.strip()))
-        self.tbl_search_results.setItem(rows, 2, QTableWidgetItem(item_type.strip()))
+        self.tbl_search_results.setRowHeight(rows, 60)
+        self.tbl_search_results.setCellWidget(rows, 0, LabelWithThumb(queue_data['data']['thumb_url'],
+                                                                      item_name.strip(),
+                                                                      self.__qt_nam,
+                                                                      thumb_enabled=config.get('show_search_thumbnails'),
+                                                                      parent=self))
+        c1item = QTableWidgetItem(item_by.strip())
+        c1item.setToolTip(item_by.strip())
+        self.tbl_search_results.setItem(rows, 1, c1item)
+        c2item = QTableWidgetItem(item_type.strip())
+        c2item.setToolTip(item_type.strip())
+        self.tbl_search_results.setItem(rows, 2, c2item)
+        btn.setToolTip(f"Download {item_type.strip()} '{item_name.strip()}' by '{item_by.strip()}'. ")
         self.tbl_search_results.setCellWidget(rows, 3, btn)
+        tbl_search_results_headers.resizeSection(0, 450)
         return True
 
     def __populate_search_results(self, data):
@@ -639,9 +682,18 @@ class MainWindow(QMainWindow):
                 item_name, item_by = name_by_from_sdata(d_key, item)
                 if item_name is None and item_by is None:
                     continue
+                if d_key.lower() == "tracks":
+                    thumb_dict = item['album']['images']
+                else:
+                    thumb_dict = item['images']
                 queue_data = {'media_type': d_key[0:-1], 'media_id': item['id'],
                               'data': {
-                                  'media_title': item_name.replace("[ 18+ ]", "")
+                                  'media_title': item_name.replace("[ E ]", ""),
+                                  'thumb_url': get_thumbnail(thumb_dict,
+                                                             preferred_size=config.get('search_thumb_height')^2
+                                                             ).replace(
+                                      'https', 'http'
+                                  )
                               }}
                 tmp_dl_val = self.inp_tmp_dl_root.text().strip()
                 if self.__advanced_visible and tmp_dl_val != "" and os.path.isdir(tmp_dl_val):
@@ -666,10 +718,10 @@ class MainWindow(QMainWindow):
                             continue
                         queue_data = {'media_type': d_key[0:-1], 'media_id': item['id'],
                                       'data': {
-                                          'media_title': item_name.replace('[ 18+ ]', ''),
+                                          'media_title': item_name.replace('[ E ]', ''),
                                           "hide_dialogs": hide_dialog
                                       }}
-                        self.__parsing_queue.put(queue_data)
+                        self.__send_to_pqp(queue_data)
                     downloaded_types.append(d_key)
             if len(downloaded_types) != 0:
                 self.__splash_dialog.run(
@@ -691,3 +743,18 @@ class MainWindow(QMainWindow):
                     check_row = check_row + 1
             else:
                 check_row = check_row + 1
+
+    def __send_to_pqp(self, queue_item):
+        tmp_dl_val = self.inp_tmp_dl_root.text().strip()
+        if self.__advanced_visible and tmp_dl_val != "":
+            logger.info('Advanced tab visible and temporary download path set !')
+            try:
+                if not os.path.exists(os.path.abspath(tmp_dl_val)):
+                    os.makedirs(os.path.abspath(tmp_dl_val), exist_ok=True)
+                queue_item['data']['dl_path'] = tmp_dl_val
+                queue_item['data']['dl_path_is_root'] = True
+                queue_item['data']['force_album_after_extra_path_as_root'] = self.inp_force_album_after_extra_path_as_root.isChecked()
+            except:
+                logger.error('Temp dl path cannot be created !')
+        logger.info('Prepared media for parsing, adding to PQP queue !')
+        self.__parsing_queue.put(queue_item)
