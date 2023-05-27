@@ -6,7 +6,7 @@ qt based music downloader written in python.
 
 ![Screenshot](https://i.imgur.com/C4V94gy.png)
 
-### Discord for discussions: [Discord Invite](https://discord.gg/2t6BNVgZ)
+### Discord for discussions: [Discord Invite](https://discord.gg/hz4mAwSujH)
 If you have an idea for an improvement or feature, create a issue or join the discord server to discuss!
 
 # 1. Installing/launching application:
@@ -25,6 +25,17 @@ Make sure [python3](https://www.python.org/downloads) and [Git](https://git-scm.
   
 ## 1.2. Using portable prebuilt binaries
 ### On Linux
+#### Arch Linux
+`onthespot` is available for arch linux and arch linux based distributions in arch user repository (aur) as [onthespot-git](https://aur.archlinux.org/packages/onthespot-git).
+
+You can install `onthespot` using your favourite aur helper.
+
+For eg: using yay
+```
+yay -Sy onthespot-git
+```
+
+#### Other Distributions
 Download Latest 'onthespot_linux' from the release section and execute with
  ```
  chmod +x onthespot_linux
@@ -188,7 +199,6 @@ Do not include '.' in it. This setting will be ignored while using the raw media
 
 # 5. Issues
 Decode error: If you are receiving this error, your account might have got restricted. Wait some time or try a different account. The application may crash frequently as there is no proper exception handling yet. You can help by opening a new issue with the error message displayed in your console window after the application misbehaves.
-
  
 # 6. Contributing/Supporting
 You can write code to include additional feature or bug fixes or make a issue regarding bugs and features or just spread the work about the application :)
