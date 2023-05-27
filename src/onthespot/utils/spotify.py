@@ -52,15 +52,16 @@ def get_track_lyrics(session, track_id, metadata, forced_synced):
                 tracktitle = value
             elif key in ['album_name', 'album']:
                 album = value
-
+        l_ms = metadata['duration']
         if lyrics_json_req.status_code == 200:
             lyrics_json = lyrics_json_req.json()
             lyrics.append(f'[ti:{tracktitle}]')
-            # lyrics.append(f'[au:Songwriter]')
+            lyrics.append(f'[au:{";".join(writer for writer in metadata["credits"].get("writers", []))}]')
             lyrics.append(f'[ar:{artist}]')
             lyrics.append(f'[al:{album}]')
             lyrics.append(f'[by:{lyrics_json["provider"]}]')
-            lyrics.append('[ve:0.5]')
+            lyrics.append(f'[ve:{config.version}]')
+            lyrics.append(f'[length: {round((l_ms/1000)/60)}:{round((l_ms/1000)%60)}]')
             lyrics.append('[re:casualsnek-onTheSpot]')
             if lyrics_json['kind'].lower() == 'text':
                 # It's un synced lyrics, if not forcing synced lyrics return it
@@ -272,7 +273,21 @@ def check_premium(session):
 def get_song_info(session, song_id):
     token = session.tokens().get("user-read-email")
     uri = 'https://api.spotify.com/v1/tracks?ids=' + song_id + '&market=from_token'
+    uri_credits = f'https://spclient.wg.spotify.com/track-credits-view/v0/experimental/{song_id}/credits'
     info = make_call(uri, token=token)
+    credits_json = make_call(uri_credits, token=token)
+    credits = {}
+    for credit_block in credits_json['roleCredits']:
+        try:
+            credits[credit_block['roleTitle'].lower()] = [
+                artist['name']
+                for artist
+                in
+                credit_block['artists']
+                ]
+        except KeyError:
+            pass
+    credits['source'] = credits_json.get('sourceNames', [])
     album_url = info['tracks'][0]['album']['href']
     artist_url = info['tracks'][0]['artists'][0]['href']
     album_data = make_call(album_url, token=token)
@@ -295,11 +310,17 @@ def get_song_info(session, song_id):
         'popularity': info['tracks'][0]['popularity'],
         'isrc': info['tracks'][0]['external_ids'].get('isrc', ''),
         'genre': artist_data['genres'],
+        'duration': info['tracks'][0]['duration_ms'],
+        'credits': credits,
         # https://developer.spotify.com/documentation/web-api/reference/get-track
         # List of genre is supposed to be here, genre from album API is deprecated and it always seems to be unavailable
         # Use artist endpoint to get artist's genre instead
         'label': sanitize_data(album_data['label']),
-        'copyrights':  [ sanitize_data(holder['text']) for holder in album_data['copyrights'] ],
+        'copyrights':  [
+            sanitize_data(holder['text'])
+            for holder
+            in album_data['copyrights']
+            ],
         'explicit': info['tracks'][0]['explicit']
     }
     return info
