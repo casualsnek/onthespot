@@ -181,7 +181,7 @@ class DownloadWorker(QObject):
                         self.logger.info(f'Fetching lyrics for track id: {trk_track_id_str}, '
                                          f'{config.get("only_synced_lyrics")}')
                         try:
-                            lyrics = get_track_lyrics(session, trk_track_id_str, config.get('only_synced_lyrics'))
+                            lyrics = get_track_lyrics(session, trk_track_id_str, song_info, config.get('only_synced_lyrics'))
                             if lyrics:
                                 self.logger.info(f'Found lyrics for: {trk_track_id_str}, writing...')
                                 if config.get('use_lrc_file', 1):

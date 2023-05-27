@@ -32,7 +32,7 @@ def get_playlist_data(session, playlist_id):
     return sanitize_data(resp['name']), sanitize_data(resp['owner']['display_name']), sanitize_data(resp['description']), resp['external_urls']['spotify']
 
 
-def get_track_lyrics(session, track_id, forced_synced):
+def get_track_lyrics(session, track_id, metadata, forced_synced):
     lyrics = []
     try:
         params = 'format=json&market=from_token'
@@ -43,10 +43,25 @@ def get_track_lyrics(session, track_id, forced_synced):
             params=params,
             headers=headers
         )
+
+        for key in metadata.keys():
+            value = metadata[key]
+            if key == 'artists':
+                artist = conv_artist_format(value)
+            elif key in ['name', 'track_title', 'tracktitle']:
+                tracktitle = value
+            elif key in ['album_name', 'album']:
+                album = value
+
         if lyrics_json_req.status_code == 200:
             lyrics_json = lyrics_json_req.json()
-            lyrics.append(f'[au:{lyrics_json["provider"]}]')
-            lyrics.append('[by:casualsnek-onTheSpot]')
+            lyrics.append(f'[ti:{tracktitle}]')
+            # lyrics.append(f'[au:Songwriter]')
+            lyrics.append(f'[ar:{artist}]')
+            lyrics.append(f'[al:{album}]')
+            lyrics.append(f'[by:{lyrics_json["provider"]}]')
+            lyrics.append('[ve:0.5]')
+            lyrics.append('[re:casualsnek-onTheSpot]')
             if lyrics_json['kind'].lower() == 'text':
                 # It's un synced lyrics, if not forcing synced lyrics return it
                 if not forced_synced:
