@@ -94,6 +94,7 @@ def get_tracks_from_playlist(session, playlist_id):
 
 
 def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
+    logger.info(f'Sanitising string: "{value}"; Allow path separators: {allow_path_separators}')
     if value is None:
         return ''
     sanitize = ['*', '?', '\'', '<', '>', '"', '/'] if os.name == 'nt' else []
@@ -104,8 +105,11 @@ def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
     if os.name == 'nt':
         value = value.replace('|', '-')
         drive_letter, tail = None, value
-        if value[0] in string.ascii_letters and value[1:3] == ':\\':
-            drive_letter, tail = os.path.splitdrive(value)
+        try:
+            if value[0] in string.ascii_letters and value[1:3] == ':\\':
+                drive_letter, tail = os.path.splitdrive(value)
+        except IndexError:
+            logger.warning('String too short..')
         value = os.path.join(
             drive_letter if drive_letter is not None else '',
             tail.replace(':', '-')
