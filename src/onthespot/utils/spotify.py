@@ -61,8 +61,13 @@ def get_track_lyrics(session, track_id, metadata, forced_synced):
             lyrics.append(f'[al:{album}]')
             lyrics.append(f'[by:{lyrics_json["provider"]}]')
             lyrics.append(f'[ve:{config.version}]')
-            lyrics.append(f'[length: {round((l_ms/1000)/60)}:{round((l_ms/1000)%60)}]')
             lyrics.append('[re:casualsnek-onTheSpot]')
+            if round((l_ms/1000)/60) < 10:
+                digit="0"
+            else:
+                digit=""
+            lyrics.append(f'[length:{digit}{round((l_ms/1000)/60)}:{round((l_ms/1000)%60)}]\n')
+
             if lyrics_json['kind'].lower() == 'text':
                 # It's un synced lyrics, if not forcing synced lyrics return it
                 if not forced_synced:
