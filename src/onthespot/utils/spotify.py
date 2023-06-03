@@ -92,12 +92,13 @@ def get_tracks_from_playlist(session, playlist_id):
     return songs
 
 
-
 def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
     logger.info(f'Sanitising string: "{value}"; Allow path separators: {allow_path_separators}')
     if value is None:
         return ''
-    sanitize = ['*', '?', '\'', '<', '>', '"', '/'] if os.name == 'nt' else []
+    sanitize = ['*', '?', '<', '>', '"'] if os.name == 'nt' else []
+    if os.name == 'nt':
+        value = value.replace('/', '\\')
     if not allow_path_separators:
         sanitize.append(os.path.sep)
     for i in sanitize:
@@ -112,7 +113,8 @@ def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
         value = value.rstrip('.')
     else:
         if escape_quotes and '"' in value:
-            # Since convert uses double quotes, we may need to escape if it exists in path, on windows double quotes is
+            # Since convert uses double quotes, we may need to escape if it
+            # exists in path, on windows double quotes is
             # not allowed in path and will be removed
             value = value.replace('"', '\\"')
     return value
