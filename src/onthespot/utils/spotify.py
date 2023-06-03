@@ -104,14 +104,9 @@ def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
         value = value.replace(i, '')
     if os.name == 'nt':
         value = value.replace('|', '-')
-        drive_letter, tail = None, value
-        try:
-            if value[0] in string.ascii_letters and value[1:3] == ':\\':
-                drive_letter, tail = os.path.splitdrive(value)
-        except IndexError:
-            logger.warning('String too short..')
+        drive_letter, tail = os.path.splitdrive(value)
         value = os.path.join(
-            drive_letter if drive_letter is not None else '',
+            drive_letter,
             tail.replace(':', '-')
         )
         value = value.rstrip('.')
