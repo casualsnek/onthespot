@@ -8,6 +8,7 @@ from ..runtimedata import get_logger
 from .spotify import search_by_term
 import subprocess
 import asyncio
+import traceback
 
 if platform.system() == "Windows":
     from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
@@ -68,8 +69,8 @@ def login_user(username: str, password: str, login_data_dir: str, uuid: str) -> 
             return [True, session, session_json_path, premium, uuid]
         except (RuntimeError, Session.SpotifyAuthenticationException):
             logger.error(f"Failed logging in user '{username[:4]}****@****.***', invalid credentials")
-        except Exception:
-            logger.error(f"Failed logging in user '{username[:4]}****@****.***', unexpected error !")
+        except Exception as e:
+            logger.error(f"Failed logging in user '{username[:4]}****@****.***', unexpected error ! : {str(e)}; {traceback.format_exc()}")
             return [False, None, "", False, uuid]
     else:
         logger.info(f"Session file does not exist user '{username[:4]}****@****.***', attempting login with uname/pass")
