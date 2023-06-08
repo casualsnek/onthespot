@@ -5,6 +5,7 @@
       <excludeFolder url="file://$MODULE_DIR$/.idea/venv" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/ffbin_nix" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.11 (onthespot)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

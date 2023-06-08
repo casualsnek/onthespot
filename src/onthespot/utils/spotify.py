@@ -98,7 +98,10 @@ def get_tracks_from_playlist(session, playlist_id):
 
 
 def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
-    logger.info(f'Sanitising string: "{value}"; Allow path separators: {allow_path_separators}')
+    logger.info(
+        f'Sanitising string: "{value}"; '
+        'Allow path separators: {allow_path_separators}'
+        )
     if value is None:
         return ''
     sanitize = ['*', '?', '<', '>', '"'] if os.name == 'nt' else []
@@ -128,11 +131,18 @@ def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
 def get_album_name(session, album_id):
     logger.info(f"Get album info from album by id ''{album_id}'")
     access_token = session.tokens().get("user-read-email")
-    resp = make_call(f'https://api.spotify.com/v1/albums/{album_id}', token=access_token)
+    resp = make_call(
+        f'https://api.spotify.com/v1/albums/{album_id}',
+        token=access_token
+        )
     if m := re.search(r'(\d{4})', resp['release_date']):
-        return resp['artists'][0]['name'], m.group(1), sanitize_data(resp['name']), resp['total_tracks']
+        return resp['artists'][0]['name'],\
+            m.group(1), sanitize_data(resp['name']),\
+            resp['total_tracks']
     else:
-        return sanitize_data(resp['artists'][0]['name']), resp['release_date'], sanitize_data(resp['name']), resp['total_tracks']
+        return sanitize_data(resp['artists'][0]['name']),\
+            resp['release_date'], sanitize_data(resp['name']),\
+            resp['total_tracks']
 
 
 def get_album_tracks(session, album_id):
@@ -144,8 +154,16 @@ def get_album_tracks(session, album_id):
     include_groups = 'album,compilation'
 
     while True:
-        params = {'limit': limit, 'include_groups': include_groups, 'offset': offset}
-        resp = make_call(f'https://api.spotify.com/v1/albums/{album_id}/tracks', token=access_token, params=params)
+        params = {
+            'limit': limit,
+            'include_groups': include_groups,
+            'offset': offset
+            }
+        resp = make_call(
+            f'https://api.spotify.com/v1/albums/{album_id}/tracks',
+            token=access_token,
+            params=params
+            )
         offset += limit
         songs.extend(resp['items'])
 
@@ -157,27 +175,40 @@ def get_album_tracks(session, album_id):
 def convert_audio_format(filename, quality):
     if os.path.isfile(os.path.abspath(filename)):
         target_path = Path(filename)
-        if target_path.suffix == '.ogg':
-            # The origin and target formats are same !
-            return None
         bitrate = "320k" if quality == AudioQuality.VERY_HIGH else "160k"
-        temp_name = os.path.join(target_path.parent, ".~"+target_path.stem+".ogg")
+        temp_name = os.path.join(
+            target_path.parent, ".~"+target_path.stem+".ogg"
+            )
         if os.path.isfile(temp_name):
             os.remove(temp_name)
-
         os.rename(filename, temp_name)
         # Prepare default parameters
         command = [
             config.get('_ffmpeg_bin_path'),
-            '-i', sanitize_data(temp_name, allow_path_separators=True, escape_quotes=False),
+            '-i', sanitize_data(
+                temp_name,
+                allow_path_separators=True,
+                escape_quotes=False
+                ),
             '-ar', '44100', '-ac', '2', '-b:a', bitrate,
         ]
+        if int(os.environ.get('SHOW_FFMPEG_OUTPUT', 0)) == 0:
+            for flag in ['-loglevel', 'error', '-hide_banner', '-nostats']:
+                command.append(flag)
         # Add user defined parameters
         for param in config.get('ffmpeg_args'):
             command.append(param)
         # Add output parameter at last
-        command.append( sanitize_data(filename, allow_path_separators=True, escape_quotes=False) )
-        logger.info(f'Converting media with ffmpeg. Built commandline {command} ')
+        command.append(
+            sanitize_data(
+                filename,
+                allow_path_separators=True,
+                escape_quotes=False
+                )
+            )
+        logger.info(
+            f'Converting media with ffmpeg. Built commandline {command}'
+            )
         subprocess.check_call(command, shell=False)
         os.remove(temp_name)
     else:
@@ -193,7 +224,9 @@ def conv_artist_format(artists):
 
 def set_audio_tags(filename, metadata, track_id_str):
     logger.info(
-        f"Setting tags for audio media at '{filename}', mediainfo -> '{metadata}'")
+        f"Setting tags for audio media at "
+        "'{filename}', mediainfo -> '{metadata}'"
+        )
     type_ = 'track'
     tags = music_tag.load_file(filename)
     for key in metadata.keys():
@@ -239,14 +272,20 @@ def set_music_thumbnail(filename, image_url):
     tags.save()
 
 
-def search_by_term(session, search_term, max_results=20, content_types=None) -> dict:
-    results = {
+def search_by_term(session,
+                   search_term,
+                   max_results=20,
+                   content_types=None) -> dict:
+    results: dict = {
         "tracks": [],
         "albums": [],
         "playlists": [],
         "artists": [],
     }
-    logger.info(f"Get search result for term '{search_term}', max items '{max_results}'")
+    logger.info(
+        f"Get search result for term "
+        "'{search_term}', max items '{max_results}'"
+        )
     if search_term.strip() == "":
         logger.warning(f"Returning empty data as query is empty !")
         return results
@@ -273,12 +312,14 @@ def search_by_term(session, search_term, max_results=20, content_types=None) -> 
 
 
 def check_premium(session):
-    return bool((session.get_user_attribute("type") == "premium") or config.get("force_premium"))
+    return bool(
+        session.get_user_attribute("type") == "premium" or config.get("force_premium")
+        )
 
 
 def get_song_info(session, song_id):
     token = session.tokens().get("user-read-email")
-    uri = 'https://api.spotify.com/v1/tracks?ids=' + song_id + '&market=from_token'
+    uri = f'https://api.spotify.com/v1/tracks?ids={song_id}&market=from_token'
     uri_credits = f'https://spclient.wg.spotify.com/track-credits-view/v0/experimental/{song_id}/credits'
     info = make_call(uri, token=token)
     credits_json = make_call(uri_credits, token=token)

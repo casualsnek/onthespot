@@ -13,7 +13,7 @@ log_handler = RotatingFileHandler(config.get("_log_file"),
                                   mode='a',
                                   maxBytes=(5 * 1024 * 1024),
                                   backupCount=2,
-                                  encoding=None,
+                                  encoding='utf-8',
                                   delay=0)
 stdout_handler = logging.StreamHandler(sys.stdout)
 log_handler.setFormatter(log_formatter)
