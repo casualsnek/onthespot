@@ -49,13 +49,36 @@ class Config:
         if os.path.isfile(self.__cfg_path):
             self.__config = json.load(open(cfg_path, "r"))
         else:
-            os.makedirs(os.path.dirname(self.__cfg_path), exist_ok=True)
+            try:
+                os.makedirs(os.path.dirname(self.__cfg_path), exist_ok=True)
+            except (FileNotFoundError, PermissionError):
+                fallback_path = os.path.abspath(
+                    os.path.join('.config', 'config.json')
+                    )
+                print(
+                    'Critical error.. Configuration file could not be '
+                    'created at "{self.__cfg_path}"; Trying : {fallback_path}'
+                    )
+                self.__cfg_path = fallback_path
+                os.makedirs(os.path.dirname(self.__cfg_path), exist_ok=True)
             with open(self.__cfg_path, "w") as cf:
                 cf.write(json.dumps(self.__template_data, indent=4))
             self.__config = self.__template_data
         self.__run_migration()
         print('Config version: ', self.__config['version'])
-        os.makedirs(self.get("download_root"), exist_ok=True)
+        try:
+            os.makedirs(self.get("download_root"), exist_ok=True)
+        except (FileNotFoundError, PermissionError):
+            print(
+                'Current download root cannot be set up at "',
+                self.get("download_root"),
+                '"; Falling back to : ',
+                self.__template_data.get('download_root')
+                )
+            self.set_(
+                'download_root', self.__template_data.get('download_root')
+                )
+            os.makedirs(self.get("download_root"), exist_ok=True)
         # Set ffmpeg path
         self.app_root = os.path.dirname(os.path.realpath(__file__))
         if os.path.isfile(os.path.join(self.app_root, 'bin', 'ffmpeg', 'ffmpeg' + self.ext_)):
@@ -75,7 +98,25 @@ class Config:
         print("Using ffmpeg binary at: ", self.get('_ffmpeg_bin_path'))
         self.set_('_log_file', os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot", "logs", self.session_uuid, "onthespot.log"))
         self.set_('_cache_dir', os.path.join(os.path.expanduser("~"), ".cache", "casualOnTheSpot"))
-        os.makedirs( os.path.dirname(self.get("_log_file")), exist_ok=True)
+        try:
+            os.makedirs(
+                os.path.dirname(self.get("_log_file")), exist_ok=True
+                )
+        except (FileNotFoundError, PermissionError):
+            fallback_logdir = os.path.abspath(os.path.join(
+                ".logs", self.session_uuid, "onthespot.log"
+                )
+            )
+            print(
+                'Current logging dir cannot be set up at "',
+                self.get("download_root"),
+                '"; Falling back to : ',
+                fallback_logdir
+                )
+            self.set_('_log_file', fallback_logdir)
+            os.makedirs(
+                os.path.dirname(self.get("_log_file")), exist_ok=True
+                )
 
     def get(self, key, default=None):
         if key in self.__config:
