@@ -189,12 +189,17 @@ def convert_audio_format(filename, quality):
                 temp_name,
                 allow_path_separators=True,
                 escape_quotes=False
-                ),
-            '-ar', '44100', '-ac', '2', '-b:a', bitrate,
+                )
         ]
+        # If the media format is set to ogg, just correct the downloaded file
+        # and add tags
+        if target_path.suffix == '.ogg':
+            command = command + ['-ac', 'copy']
+        else:
+            command = command + ['-ar', '44100', '-ac', '2', '-b:a', bitrate]
         if int(os.environ.get('SHOW_FFMPEG_OUTPUT', 0)) == 0:
-            for flag in ['-loglevel', 'error', '-hide_banner', '-nostats']:
-                command.append(flag)
+            command = command + \
+                ['-loglevel', 'error', '-hide_banner', '-nostats']
         # Add user defined parameters
         for param in config.get('ffmpeg_args'):
             command.append(param)
