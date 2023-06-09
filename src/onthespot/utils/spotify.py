@@ -194,7 +194,7 @@ def convert_audio_format(filename, quality):
         # If the media format is set to ogg, just correct the downloaded file
         # and add tags
         if target_path.suffix == '.ogg':
-            command = command + ['-ac', 'copy']
+            command = command + ['-c', 'copy']
         else:
             command = command + ['-ar', '44100', '-ac', '2', '-b:a', bitrate]
         if int(os.environ.get('SHOW_FFMPEG_OUTPUT', 0)) == 0:
