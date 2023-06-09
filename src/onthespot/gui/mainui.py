@@ -735,7 +735,7 @@ class MainWindow(QMainWindow):
             logger.info(f'Removing Row : {check_row} and mediaid: {did}')
             if did in downloads_status:
                 progress = downloads_status[did]["progress_bar"].value()
-                status = downloads_status[did]["status_label"].text()
+                status = downloads_status[did]["status_label"].text().lower()
                 if progress == 100 or status in ['cancelled', 'unavailable']:
                     self.tbl_dl_progress.removeRow(check_row)
                     downloads_status.pop(did)
