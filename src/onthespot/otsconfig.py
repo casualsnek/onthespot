@@ -34,6 +34,7 @@ class Config:
             "podcast_media_format": "mp3", # Podcast track media format
             "force_raw": False, # Skip media conversion and metadata writing
             "force_premium": False, # Set premium flag to always return true
+            "android_album_artist": True, # Set album artist as album name to avoid android splitting the album
             "chunk_size": 50000, # Chunk size in bytes to download in
             "recoverable_fail_wait_delay": 10, # No of seconds to wait before failure that can be retried
             "disable_bulk_dl_notices": True, # Hide popups for bulk download buttons

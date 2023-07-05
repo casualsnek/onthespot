@@ -242,6 +242,8 @@ def set_audio_tags(filename, metadata, track_id_str):
             tags['tracktitle'] = value
         elif key in ['album_name', 'album']:
             tags['album'] = value
+            if (config.get('android_album_artist')):
+                tags['albumartist'] = value
         elif key in ['year', 'release_year']:
             tags['year'] = value
         elif key in ['discnumber', 'disc_number', 'disknumber', 'disk_number']:

@@ -450,6 +450,10 @@ class MainWindow(QMainWindow):
             self.inp_force_premium.setChecked(True)
         else:
             self.inp_force_premium.setChecked(False)
+        if config.get("android_album_artist"):
+            self.inp_android_album_artist.setChecked(True)
+        else:
+            self.inp_android_album_artist.setChecked(False)
         if config.get("disable_bulk_dl_notices"):
             self.inp_disable_bulk_popup.setChecked(True)
         else:

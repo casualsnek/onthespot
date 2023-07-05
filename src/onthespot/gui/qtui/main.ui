@@ -877,6 +877,13 @@
                </widget>
               </item>
               <item>
+               <widget class="QCheckBox" name="inp_android_album_artist">
+                <property name="text">
+                 <string>Set album artist as album name</string>
+                </property>
+               </widget>
+              </item>
+              <item>
                <widget class="QCheckBox" name="inp_enable_spot_watch">
                 <property name="text">
                  <string>Enable desktop app play to download</string>
