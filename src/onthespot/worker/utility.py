@@ -96,7 +96,6 @@ class ParsingQueueProcessor(QObject):
             logger.debug(f'Got data to parse: {str(item)}')
             try:
                 session = session_pool[selected_uuid]
-                # default cfg, overwritten for playlists
                 enqueue_part_cfg = {
                         'extra_paths': item['data'].get('dl_path', ''),
                         'extra_path_as_root': item['data'].get('dl_path_is_root', False),
@@ -194,13 +193,11 @@ class ParsingQueueProcessor(QObject):
                         )
                     playlist_songs = get_tracks_from_playlist(session,
                                                               item['media_id'])
-                    enqueue_part_cfg = {'extra_paths': item['data'].get('dl_path', ''),
-                                        'extra_path_as_root': item['data'].get('dl_path_is_root', False),
-                                        'force_album_after_extra_path_as_root': item['data'].get('force_album_after_extra_path_as_root', False),
-                                        'playlist_name': name,
-                                        'playlist_owner': owner,
-                                        'playlist_desc': description
-                                        }
+                    enqueue_part_cfg.update({
+                        'playlist_name': name,
+                        'playlist_owner': owner,
+                        'playlist_desc': description
+                    })
                     if enable_m3u:
                         playlist_m3u_queue[item['media_id']] = {
                             'filename': os.path.abspath(
