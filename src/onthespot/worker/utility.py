@@ -96,6 +96,12 @@ class ParsingQueueProcessor(QObject):
             logger.debug(f'Got data to parse: {str(item)}')
             try:
                 session = session_pool[selected_uuid]
+                # default cfg, overwritten for playlists
+                enqueue_part_cfg = {
+                        'extra_paths': item['data'].get('dl_path', ''),
+                        'extra_path_as_root': item['data'].get('dl_path_is_root', False),
+                        'force_album_after_extra_path_as_root': item['data'].get('force_album_after_extra_path_as_root', False)
+                }                
                 if item['media_type'] == 'album':
                     artist, album_release_date, album_name, total_tracks = get_album_name(session, item['media_id'])
                     item_name = item['data'].get('media_title', album_name)
@@ -105,11 +111,6 @@ class ParsingQueueProcessor(QObject):
                         )
                     tracks = get_album_tracks(session, item['media_id'])
                     logger.info("Passing control to track downloader.py for album tracks downloading !!")
-                    enqueue_part_cfg = {
-                        'extra_paths': item['data'].get('dl_path', ''),
-                        'extra_path_as_root': item['data'].get('dl_path_is_root', False),
-                        'force_album_after_extra_path_as_root': item['data'].get('force_album_after_extra_path_as_root', False)
-                    }
                     self.enqueue_tracks(tracks, enqueue_part_cfg=enqueue_part_cfg,
                                         log_id=f'{album_name}:{item["media_id"]}',
                                         item_type=f"Album [{album_release_date}][{album_name}]")
@@ -129,11 +130,6 @@ class ParsingQueueProcessor(QObject):
                         item_name = artist
                         tracks = get_album_tracks(session, album_id)
                         logger.info("Passing control to track downloader.py for album artist downloading !!")
-                        enqueue_part_cfg = {
-                            'extra_paths': item['data'].get('dl_path', ''),
-                            'extra_path_as_root': item['data'].get('dl_path_is_root', False),
-                            'force_album_after_extra_path_as_root': item['data'].get('force_album_after_extra_path_as_root', False)
-                        }
                         self.enqueue_tracks(tracks, enqueue_part_cfg=enqueue_part_cfg,
                                             log_id=f'{artist}:{item["media_id"]}', item_type=f"Artist [{item_name}]")
                     if not item['data'].get('hide_dialogs', False):
@@ -228,11 +224,6 @@ class ParsingQueueProcessor(QObject):
                     name = song_info['name']
                     if not item['data'].get('hide_dialogs', False):
                         self.progress.emit(f"Adding track '{name}' to download queue !")
-                    enqueue_part_cfg = {
-                        'extra_paths': item['data'].get('dl_path', ''),
-                        'extra_path_as_root': item['data'].get('dl_path_is_root', False),
-                        'force_album_after_extra_path_as_root': item['data'].get('force_album_after_extra_path_as_root', False)
-                    }
                     track_obj = {
                         'id': item['media_id'],
                         'name': song_info['name'],
