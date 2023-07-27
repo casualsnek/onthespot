@@ -65,12 +65,12 @@ def retry_all_failed_downloads():
 
 def cancel_all_downloads():
     for did in downloads_status.keys():
-        print('Trying to cancel : ', did)
+        print(f'Trying to cancel : {did}')
         try:
             if downloads_status[did]['progress_bar'].value() < 95 and did not in cancel_list:
                 cancel_list[did] = {}
         except (KeyError, RuntimeError):
-            logger.info('Cannot cancel media id: {did}, this might have been cleared')
+            logger.info(f'Cannot cancel media id: {did}, this might have been cleared')
 
 
 class MainWindow(QMainWindow):
@@ -264,20 +264,20 @@ class MainWindow(QMainWindow):
         # Create progress status
         if item['item_id'] in downloads_status:
             # If the item is in download status dictionary, it's not cleared from view
-            logger.info('The media: {item["item"]} was already in view')
+            logger.info(f'The media: "{item["item_title"]}" ({item["item_id"]}) was already in view')
             if item['item_id'] in cancel_list:
-                logger.info('The media: {item["item"]} was being cancelled, preventing cancellation !')
+                logger.info(f'The media: "{item["item_title"]}" ({item["item_id"]}) was being cancelled, preventing cancellation !')
                 cancel_list.pop(item['item_id'])
             elif item['item_id'] in failed_downloads:
                 dl_id = item['item_id']
-                logger.info('The media: {item["item"]} had failed to download, re-downoading ! !')
+                logger.info(f'The media: "{item["item_title"]}" ({item["item_id"]}) had failed to download, re-downloading ! !')
                 downloads_status[dl_id]["status_label"].setText("Waiting")
                 downloads_status[dl_id]["btn"]['cancel'].show()
                 downloads_status[dl_id]["btn"]['retry'].hide()
                 download_queue.put(failed_downloads[dl_id].copy())
                 failed_downloads.pop(dl_id)
             else:
-                logger.info('The media: {item["item"]} is already in queue and is being downloaded, ignoring.. !')
+                logger.info(f'The media: "{item["item_title"]}" ({item["item_id"]}) is already in queue and is being downloaded, ignoring.. !')
             return None
         pbar = QProgressBar()
         pbar.setValue(0)

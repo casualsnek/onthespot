@@ -100,7 +100,7 @@ def get_tracks_from_playlist(session, playlist_id):
 def sanitize_data(value, allow_path_separators=False, escape_quotes=False):
     logger.info(
         f'Sanitising string: "{value}"; '
-        'Allow path separators: {allow_path_separators}'
+        f'Allow path separators: {allow_path_separators}'
         )
     if value is None:
         return ''
@@ -288,8 +288,7 @@ def search_by_term(session,
         "artists": [],
     }
     logger.info(
-        f"Get search result for term "
-        "'{search_term}', max items '{max_results}'"
+        f"Get search result for term '{search_term}', max items '{max_results}'"
         )
     if search_term.strip() == "":
         logger.warning(f"Returning empty data as query is empty !")
