@@ -65,7 +65,7 @@ def retry_all_failed_downloads():
 
 def cancel_all_downloads():
     for did in downloads_status.keys():
-        print(f'Trying to cancel : {did}')
+        logger.info(f'Trying to cancel : {did}')
         try:
             if downloads_status[did]['progress_bar'].value() < 95 and did not in cancel_list:
                 cancel_list[did] = {}
