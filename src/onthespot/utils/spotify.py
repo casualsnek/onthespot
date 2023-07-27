@@ -329,16 +329,17 @@ def get_song_info(session, song_id):
     info = make_call(uri, token=token)
     credits_json = make_call(uri_credits, token=token)
     credits = {}
-    for credit_block in credits_json['roleCredits']:
-        try:
+    try:
+        for credit_block in credits_json['roleCredits']:
             credits[credit_block['roleTitle'].lower()] = [
                 artist['name']
                 for artist
                 in
                 credit_block['artists']
                 ]
-        except KeyError:
-            pass
+    except KeyError:
+        logger.warn(f"roleCredits not found in credits response:\n{credits_json}")
+        pass
     credits['source'] = credits_json.get('sourceNames', [])
     album_url = info['tracks'][0]['album']['href']
     artist_url = info['tracks'][0]['artists'][0]['href']
