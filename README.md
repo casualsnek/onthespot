@@ -11,19 +11,24 @@ If you have an idea for an improvement or feature, create a issue or join the di
 
 # 1. Installing/launching application:
 ## 1.1. Launch without installing - from source
-Make sure [python3](https://www.python.org/downloads) and [Git](https://git-scm.com/downloads) are installed on your system, if you are on windows you also need to install Microsoft C++ build tools from [HERE](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and restart your computer before starting build process.
-  - Download or Clone the repo ```git clone https://github.com/casualsnek/onthespot```
-  - Navigate to the onthespot directory ```cd onthespot```
-  - Install the dependencies with ```pip install -r requirements.txt```
-  - Navigate to source directory ```cd src```
-  - Launch the application with ```python3 -m onthespot```
- 
- *Windows users should also follow these extra steps before running:* ```python3 onthespot.py```
- ```
- pip install winsdk
- ```
-  
-## 1.2. Using portable prebuilt binaries
+
+Make sure [ffmpeg](https://ffmpeg.org/), [python3](https://www.python.org/downloads) and [Git](https://git-scm.com/downloads) are installed and available on your `$PATH`. If you are on windows, you also need to install the [Microsoft C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and restart your computer before starting the build process.
+  1. Download or Clone the repo ```git clone https://github.com/casualsnek/onthespot```
+  1. Navigate to the onthespot directory ```cd onthespot```
+  1. Install the package ```pip install -r requirements.txt```
+  1. Navigate to source directory ```cd src```
+  1. Launch the application with ```python3 -m onthespot```
+
+## 1.2. Launch with installing - from source
+
+The requirements are the same as "Launching without installing" above.
+
+1. Download or Clone the repo ```git clone https://github.com/casualsnek/onthespot```
+1. Navigate to the onthespot directory ```cd onthespot```
+1. Install the package ```pip install .```
+1. Launch the application with ```onthespot_gui```
+
+## 1.3. Using portable prebuilt binaries
 ### On Linux
 #### Arch Linux
 `onthespot` is available for arch linux and arch linux based distributions in arch user repository (aur) as [onthespot-git](https://aur.archlinux.org/packages/onthespot-git).
@@ -54,7 +59,6 @@ If you are using binaries that does not bundle ffmpeg and downloads gets stuck a
 - Open CMD as administrator and run the command: ```setx /m PATH "C:\ffmpeg\bin;%PATH%"```
 
 Now the application should work as expected.
-
 
 # 2. Building/packaging manually
 Building or packaging on any OS requires Git, Python3 and Pip installed. Make sure you have them installed !
@@ -88,6 +92,23 @@ build_winC1.bat
 build_winC2.bat
 ```
 After the command completes, you should have a 'dist' directory in repository root containing built 'onthespot_win.exe' binary.
+
+### 2.1.3. On MacOS
+
+**NOTE :** This only builds an app for the specific processor architecture you are on. It does not build a universal binary
+
+Open terminal emulator and run the following command to clone the repository and build.
+```bash
+git clone https://github.com/casualsnek/onthespot
+cd onthespot
+```
+
+If you want builds with ffmpeg embedded download ffmpeg binaries for your os from [Here](https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z).
+Create a new directory named 'ffbin_mac' in repository root directory. Copy three files 'ffmpeg', 'ffprobe', 'ffplay' from the downloaded archive to the newly created 'ffbin_mac' directory then run:
+```bash
+./build_mac.sh
+```
+After the command completes, you should have a 'dist' directory in repository root containing the 'onthespot_mac.app' binary.
 
 ## 2.2.  Building wheel for installing with pip
 You can also build onthespot as wheel and install it as python module via pip in your system. It provides better integration with system, like using your system's Qt style and themes as well as you can use provided icon and .desktop file for better integration under linux systems.
