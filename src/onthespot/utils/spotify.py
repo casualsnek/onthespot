@@ -238,6 +238,8 @@ def set_audio_tags(filename, metadata, track_id_str):
         value = metadata[key]
         if key == 'artists':
             tags['artist'] = conv_artist_format(value)
+            if not config.get('android_album_artist'):
+                tags['albumartist'] = value[0]
         elif key in ['name', 'track_title', 'tracktitle']:
             tags['tracktitle'] = value
         elif key in ['album_name', 'album']:
