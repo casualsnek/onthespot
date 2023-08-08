@@ -25,7 +25,8 @@ The requirements are the same as "Launching without installing" above.
 
 1. Download or Clone the repo ```git clone https://github.com/casualsnek/onthespot```
 1. Navigate to the onthespot directory ```cd onthespot```
-1. Install the package ```pip install .```
+1. Build the package ```python -m build```
+1. Install the package ```pip install ./dist/*.whl```
 1. Launch the application with ```onthespot_gui```
 
 ## 1.3. Using portable prebuilt binaries
