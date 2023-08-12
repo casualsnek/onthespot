@@ -21,6 +21,7 @@ class SpotifyMediaProperty:
     _thumbnail: Union[BytesIO, None] = None
     _session: Union[Session, None] = None
     __token: Union[str, None] = None
+    _FULL_METADATA_ACQUIRED: bool = False
 
     def __init__(self, media_id: str):
         """
@@ -29,7 +30,6 @@ class SpotifyMediaProperty:
         :return:
         """
         self.__id = media_id
-        self._fetch_metadata()
 
     def _fetch_metadata(self) -> None:
         """
@@ -141,6 +141,9 @@ class SpotifyMediaProperty:
             meta_key = name[5:]
             metadata = object.__getattribute__(self, '_metadata')
             if metadata is not None:
+                if meta_key not in metadata and self._FULL_METADATA_ACQUIRED is False:
+                    # If the required metadata is missing and full metadata is not fetched, fetch it now
+                    self._fetch_metadata()
                 return metadata.get(meta_key)
         return object.__getattribute__(self, name)
 

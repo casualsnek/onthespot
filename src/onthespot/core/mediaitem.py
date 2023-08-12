@@ -1,6 +1,6 @@
 import json
 import os.path
-from typing import Union, TYPE_CHECKING
+from typing import Union
 from librespot.core import Session
 from ..common.formating import metadata_list_to_string, sanitize_string
 from ..common.utils import cached_request
@@ -101,6 +101,7 @@ class SpotifyTrackMedia(AbstractMediaItem):
             'explicit': track_info['tracks'][0]['explicit'],
             '_raw_meta': track_info
         }
+        self._FULL_METADATA_ACQUIRED = True
 
     @property
     def artist(self) -> 'SpotifyArtist':
@@ -220,6 +221,7 @@ class SpotifyEpisodeMedia(AbstractMediaItem):
             ],
             '_raw_meta': episode_info
         }
+        self._FULL_METADATA_ACQUIRED = True
 
     # TODO: Add Podcast and show properties as well
     @property
@@ -296,7 +298,7 @@ class SpotifyAlbum(AbstractMediaCollection):
                 )
             else:
                 break
-        pass
+        self._FULL_METADATA_ACQUIRED = True
 
     @property
     def tracks(self) -> list[SpotifyTrackMedia]:
@@ -373,6 +375,7 @@ class SpotifyArtist(AbstractMediaCollection):
                 artist_album_api = artist_album_info['next']
             else:
                 break
+        self._FULL_METADATA_ACQUIRED = True
 
     @property
     def albums(self) -> list[SpotifyAlbum]:
@@ -431,6 +434,7 @@ class SpotifyPlaylist(AbstractMediaCollection):
                 )
             else:
                 break
+        self._FULL_METADATA_ACQUIRED = True
 
     @property
     def tracks(self) -> list[SpotifyTrackMedia]:
@@ -491,7 +495,8 @@ class SpotifyPodcast(AbstractMediaCollection):
                 )
             else:
                 break
-
+        self._FULL_METADATA_ACQUIRED = True
+        
     @property
     def episodes(self) -> list[SpotifyEpisodeMedia]:
         """
