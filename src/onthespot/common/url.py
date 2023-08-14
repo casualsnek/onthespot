@@ -1,7 +1,6 @@
 import re
 from typing import Tuple
-
-from .mediaitem import *
+from ..core.mediaitem import *
 from ..expections import UnknownURLTypeException
 
 URL_TYPES: dict = {

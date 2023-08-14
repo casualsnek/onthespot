@@ -1,5 +1,4 @@
 from typing import Optional, Any, Union
-from typing import TYPE_CHECKING
 from io import BytesIO
 import requests
 from PIL import Image
@@ -56,6 +55,16 @@ class SpotifyMediaProperty:
             if size >= preferred_size:
                 return images[size]
         return images[available_sizes[-1]] if len(available_sizes) > 0 else ""
+
+    def set_partial_meta(self, meta_dict: dict) -> None:
+        """
+        Sets martial metadata for a media property
+        :param meta_dict: Dictionary containing meta keys/values
+        :return:
+        """
+        self._FULL_METADATA_ACQUIRED = False
+        for key in meta_dict:
+            self._metadata[key] = meta_dict[key]
 
     def get_meta_keys(self, disable_filters: bool = False) -> list[str]:
         """
@@ -256,6 +265,7 @@ class AbstractMediaItem(SpotifyMediaProperty):
 
 class AbstractMediaCollection(SpotifyMediaProperty):
     _items_id: Union[list[str], None] = None
+    _items_partial_meta: dict = {}
     _collection_class: Any = None
 
     def __init__(self, collection_id: str) -> None:
@@ -265,10 +275,20 @@ class AbstractMediaCollection(SpotifyMediaProperty):
         """
         super().__init__(media_id=collection_id)
 
+    def __len__(self):
+        return self.length
+
     @property
     def items(self) -> list:
         """
         Returns list of items this collection holds
         :return: a list of items: Track, Playlists, Episodes
         """
-        return [self._collection_class(item_id, self._session) for item_id in self._items_id]
+        for item_id in self._items_id:
+            item = self._collection_class(item_id, self._session)
+            item.set_partial_meta(self._items_partial_meta.get(item_id, {}))
+            yield item
+
+    @property
+    def length(self) -> int:
+        return len(self._items_id)

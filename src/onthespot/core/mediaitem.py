@@ -496,7 +496,7 @@ class SpotifyPodcast(AbstractMediaCollection):
             else:
                 break
         self._FULL_METADATA_ACQUIRED = True
-        
+
     @property
     def episodes(self) -> list[SpotifyEpisodeMedia]:
         """
