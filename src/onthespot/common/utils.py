@@ -49,7 +49,7 @@ def cached_request(cache_dir: Union[str, None], lifetime: int, *args, **kwargs) 
     if (200 <= request.status_code <= 299) and cache_dir is not None:
         # Request was successful, cache the response
         with open(cache_file, 'w', encoding='utf-8') as cache:
-            cache.write(str(int(time.time()) + lifetime)+'\n'+request.text.strip())
+            cache.write(str(int(time.time()) + lifetime) + '\n' + request.text.strip())
     return request.text
 
 
@@ -106,3 +106,24 @@ def convert_from_ogg(ffmpeg_path: str, source_media: str, bitrate: int,
         return target_path
     else:
         raise FileNotFoundError
+
+
+def pick_thumbnail(covers: list[dict], preferred_size: int = 640000) -> str:
+    """
+    Returns url for the artwork from available artworks
+    :param covers: list of dict containing artwork/thumbnail info
+    :param preferred_size: Size of media (width*height) which will be returned or next available better one
+    :return: Url of the cover art for media
+    """
+    images = {}
+    for image in covers:
+        try:
+            images[image['height'] * image['width']] = image['url']
+        except TypeError:
+            images[0] = image['url']
+            pass
+    available_sizes = sorted(images)
+    for size in available_sizes:
+        if size >= preferred_size:
+            return images[size]
+    return images[available_sizes[-1]] if len(available_sizes) > 0 else ""

@@ -8,6 +8,7 @@ from librespot.audio.decoders import AudioQuality, VorbisOnlyAudioQuality
 from librespot.metadata import TrackId, EpisodeId
 from ..expections import MedaFetchInterruptedException, ThumbnailUnavailableException, UnknownMediaTypeException, \
     UnplayableMediaException, StreamReadException
+from ..common.utils import pick_thumbnail
 
 
 class SpotifyMediaProperty:
@@ -15,7 +16,7 @@ class SpotifyMediaProperty:
     This class defines the base for Media and Media Collection classe, and houses common functions for similar tasks
     """
     __id: Union[str, None] = None
-    _covers: Union[dict, None] = None
+    _covers: Union[list[dict], None] = None
     _metadata: Union[dict, None] = None
     _thumbnail: Union[BytesIO, None] = None
     _session: Union[Session, None] = None
@@ -43,18 +44,7 @@ class SpotifyMediaProperty:
         :param preferred_size: Size of media (width*height) which will be returned or next available better one
         :return: Url of the cover art for media
         """
-        images = {}
-        for image in self._covers:
-            try:
-                images[image['height'] * image['width']] = image['url']
-            except TypeError:
-                images[0] = image['url']
-                pass
-        available_sizes = sorted(images)
-        for size in available_sizes:
-            if size >= preferred_size:
-                return images[size]
-        return images[available_sizes[-1]] if len(available_sizes) > 0 else ""
+        return pick_thumbnail(self._covers, preferred_size=preferred_size)
 
     def set_partial_meta(self, meta_dict: dict) -> None:
         """
@@ -149,11 +139,15 @@ class SpotifyMediaProperty:
         if name.startswith('meta_') and name != 'meta_':
             meta_key = name[5:]
             metadata = object.__getattribute__(self, '_metadata')
-            if metadata is not None:
-                if meta_key not in metadata and self._FULL_METADATA_ACQUIRED is False:
-                    # If the required metadata is missing and full metadata is not fetched, fetch it now
-                    self._fetch_metadata()
-                return metadata.get(meta_key)
+            metadata = {} if metadata is None else metadata
+            if metadata == {} or (meta_key not in metadata and self._FULL_METADATA_ACQUIRED is False):
+                self._fetch_metadata()
+                self._FULL_METADATA_ACQUIRED = True
+                metadata = object.__getattribute__(self, '_metadata')
+            if meta_key in metadata:
+                return metadata[meta_key]
+            else:
+                raise AttributeError('No such meta field !')
         return object.__getattribute__(self, name)
 
 
@@ -284,6 +278,9 @@ class AbstractMediaCollection(SpotifyMediaProperty):
         Returns list of items this collection holds
         :return: a list of items: Track, Playlists, Episodes
         """
+        if self._items_id is None and self._FULL_METADATA_ACQUIRED is False:
+            # If the item list is not yet created and full meta was not fetched, fetch it now
+            self._fetch_metadata()
         for item_id in self._items_id:
             item = self._collection_class(item_id, self._session)
             item.set_partial_meta(self._items_partial_meta.get(item_id, {}))

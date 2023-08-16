@@ -83,8 +83,8 @@ class SpotifyTrackMedia(AbstractMediaItem):
             'is_playable': track_info['tracks'][0]['is_playable'],
             'popularity': track_info['tracks'][0]['popularity'],
             'isrc': track_info['tracks'][0]['external_ids'].get('isrc', None),
-            'upc': track_info['tracks'][0]['external_ids'].get('isrc', None),
-            'ean': track_info['tracks'][0]['external_ids'].get('isrc', None),
+            'upc': track_info['tracks'][0]['external_ids'].get('upc', None),
+            'ean': track_info['tracks'][0]['external_ids'].get('ean', None),
             'genre': artist_info['genres'],
             'duration': track_info['tracks'][0]['duration_ms'],
             'credits': track_credits,
@@ -415,6 +415,9 @@ class SpotifyPlaylist(AbstractMediaCollection):
         self._metadata = {
             'name': sanitize_string(playlist_info['name']),
             'description': sanitize_string(playlist_info['description']),
+            'collaborative': playlist_info.get('collaborative', False),
+            'public': playlist_info.get('public', False),
+            'total_tracks': int(playlist_info['tracks']['total']),
             'followers': int(playlist_info['followers']['total']),
             'url': playlist_info['external_urls']['spotify'],
             'scraped_id': playlist_info['id'],
@@ -443,6 +446,22 @@ class SpotifyPlaylist(AbstractMediaCollection):
         :return: list[SpotifyAlbum]
         """
         return self.items
+
+    @property
+    def is_collaborative(self) -> bool:
+        """
+        Returns if the playlist is collaborative
+        :return: bool
+        """
+        return self._metadata['collaborative']
+
+    @property
+    def is_public(self) -> bool:
+        """
+        Returns if the playlist is public
+        :return: bool
+        """
+        return self._metadata['public']
 
 
 class SpotifyPodcast(AbstractMediaCollection):
