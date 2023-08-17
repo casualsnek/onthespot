@@ -55,12 +55,12 @@ class SpotifyTrackMedia(AbstractMediaItem):
         self._covers = track_info['tracks'][0]['album']['images']
         self._metadata = {
             'artists': [
-                sanitize_string(data['name'])
+                data['name']
                 for data in
                 track_info['tracks'][0]['artists']
             ],
-            'album_name': sanitize_string(track_info['tracks'][0]['album']["name"]),
-            'name': sanitize_string(track_info['tracks'][0]['name']),
+            'album_name': track_info['tracks'][0]['album']["name"],
+            'name': track_info['tracks'][0]['name'],
             'url': track_info['tracks'][0]['external_urls']['spotify'],
             'artist_url': track_info['tracks'][0]['artists'][0]['external_urls']['spotify'],
             'artist_id': track_info['tracks'][0]['artists'][0]['id'],
@@ -94,9 +94,9 @@ class SpotifyTrackMedia(AbstractMediaItem):
             # List of genre is supposed to be here, genre from album API is deprecated, and
             # it always seems to be unavailable
             # to Use artist endpoint to get artist's genre instead
-            'label': sanitize_string(album_info['label']),
+            'label': album_info['label'],
             'copyrights': [
-                sanitize_string(holder['text'])
+                holder['text']
                 for holder
                 in album_info['copyrights']
             ],
@@ -199,25 +199,25 @@ class SpotifyEpisodeMedia(AbstractMediaItem):
         episode_info: dict = json.loads(cached_request(self.http_cache, 0, episode_api, headers=self.req_header))
         self._covers = episode_info['tracks'][0]['album']['images']
         self._metadata = {
-            'name': sanitize_string(episode_info['name']),
-            'podcast_name': sanitize_string(episode_info['show']['name']),
+            'name': episode_info['name'],
+            'podcast_name': episode_info['show']['name'],
             'url': episode_info['external_urls']['spotify'],
-            'podcast_url': sanitize_string(episode_info['show']['external_urls']['spotify']),
+            'podcast_url': episode_info['show']['external_urls']['spotify'],
             'thumbnail_url': self.get_thumbnail_url(preferred_size=640000),
             'podcast_id': episode_info['show']['id'],
-            'description': sanitize_string(episode_info['description']),
-            'podcast_description': sanitize_string(episode_info['show']['description']),
-            'language': sanitize_string(episode_info['language']),
-            'languages': [sanitize_string(lang) for lang in episode_info['language']],
+            'description': episode_info['description'],
+            'podcast_description': episode_info['show']['description'],
+            'language': episode_info['language'],
+            'languages': [lang for lang in episode_info['language']],
             'release_year': int(episode_info['release_date'][0]),
             'release_month': int(episode_info['release_date'][1]),
             'release_day': int(episode_info['release_date'][2]),
             'is_playable': episode_info['is_playable'],
             'explicit': episode_info['explicit'],
             'scraped_id': episode_info['id'],
-            'publisher': sanitize_string(episode_info['show']['publisher']),
+            'publisher': episode_info['show']['publisher'],
             'copyrights': [
-                sanitize_string(holder['text'])
+                holder['text']
                 for holder
                 in episode_info['show']['copyrights']
             ],
@@ -268,7 +268,7 @@ class SpotifyAlbum(AbstractMediaCollection):
         album_info: dict = json.loads(cached_request(self.http_cache, 0, album_api, headers=self.req_header))
         self._covers = album_info['images']
         self._metadata = {
-            'name': sanitize_string(album_info['name']),
+            'name': album_info['name'],
             'total_tracks': int(album_info['total_tracks']),
             'url': album_info['external_urls']['spotify'],
             'scraped_id': album_info['id'],
@@ -277,14 +277,14 @@ class SpotifyAlbum(AbstractMediaCollection):
             'release_day': int(album_info['release_date'].split("-")[2]),
             'thumbnail_url': self.get_thumbnail_url(preferred_size=640000),
             '_raw_metadata': album_info,
-            'label': sanitize_string(album_info['label']),
+            'label': album_info['label'],
             'isrc': album_info['external_ids'].get('isrc', None),
             'upc': album_info['external_ids'].get('isrc', None),
             'ean': album_info['external_ids'].get('isrc', None),
             'popularity': int(album_info['popularity']),
             'artists_id': [artist['id'] for artist in album_info['artists'] if artist['type'] == 'artist'],
             'copyrights': [
-                sanitize_string(holder['text'])
+                holder['text']
                 for holder
                 in album_info['copyrights']
             ],
@@ -356,7 +356,7 @@ class SpotifyArtist(AbstractMediaCollection):
         artist_info: dict = json.loads(cached_request(self.http_cache, 0, artist_api, headers=self.req_header))
         self._covers = artist_info['images']
         self._metadata = {
-            'name': sanitize_string(artist_info['name']),
+            'name': artist_info['name'],
             'popularity': int(artist_info['popularity']),
             'followers': int(artist_info['followers']['total']),
             'url': artist_info['external_urls']['spotify'],
@@ -415,8 +415,8 @@ class SpotifyPlaylist(AbstractMediaCollection):
         playlist_info: dict = json.loads(cached_request(self.http_cache, 0, playlist_api, headers=self.req_header))
         self._covers = playlist_info['images']
         self._metadata = {
-            'name': sanitize_string(playlist_info['name']),
-            'description': sanitize_string(playlist_info['description']),
+            'name': playlist_info['name'],
+            'description': playlist_info['description'],
             'collaborative': playlist_info.get('collaborative', False),
             'public': playlist_info.get('public', False),
             'total_tracks': int(playlist_info['tracks'].get('total', 0)),
@@ -492,15 +492,15 @@ class SpotifyPodcast(AbstractMediaCollection):
         podcast_info: dict = json.loads(cached_request(self.http_cache, 0, podcast_api, headers=self.req_header))
         self._covers = podcast_info['images']
         self._metadata = {
-            'name': sanitize_string(podcast_info['name']),
-            'publisher': sanitize_string(podcast_info['name']),
-            'description': sanitize_string(podcast_info['description']),
+            'name': podcast_info['name'],
+            'publisher': podcast_info['name'],
+            'description': podcast_info['description'],
             'scraped_id': podcast_info['id'],
             'url': podcast_info['external_urls']['spotify'],
             'thumbnail_url': self.get_thumbnail_url(preferred_size=640000),
             'explicit': bool(podcast_info['explicit']),
             'copyrights': [
-                sanitize_string(holder['text'])
+                holder['text']
                 for holder
                 in podcast_info['copyrights']
             ],
