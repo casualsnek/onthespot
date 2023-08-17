@@ -310,7 +310,10 @@ class SpotifyUser:
         my_library_api: Union[str, None] = 'https://api.spotify.com/v1/me/playlists'
         while True:
             my_library_info: dict = json.loads(
-                requests.get(my_library_api, headers=self.req_header_scoped('playlist-read-private')).content
+                requests.get(
+                    my_library_api,
+                    headers=self.req_header_scoped('playlist-read-private,playlist-read-collaborative')
+                ).content
             )
             for playlist_item in my_library_info['items']:
                 playlist = SpotifyPlaylist(
