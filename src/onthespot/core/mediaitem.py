@@ -1,23 +1,25 @@
 import json
 import os.path
-from typing import Union
-from librespot.core import Session
+from typing import Union, TYPE_CHECKING
 from ..common.formating import metadata_list_to_string, sanitize_string
 from ..common.utils import cached_request
 from ..core.__base__ import AbstractMediaItem, AbstractMediaCollection
 from ..expections import LyricsUnavailableException
 
+if TYPE_CHECKING:
+    from ..core.user import SpotifyUser
+
 
 class SpotifyTrackMedia(AbstractMediaItem):
-    def __init__(self, track_id: str, session: Session, http_cache: Union[str, None] = None) -> None:
+    def __init__(self, track_id: str, user: 'SpotifyUser', http_cache: Union[str, None] = None) -> None:
         """
         Initialises the spotify track class instance
         :param track_id: Track id
-        :param session: Librespot session object to use
+        :param user: SpotifyUser to use
         :param http_cache: Path to directory where http request to spotify are cached
         """
         self.http_cache = os.path.abspath(http_cache) if http_cache is not None else None
-        self.set_session(session)
+        self.set_user(user)
         super().__init__(media_id=track_id, media_type=0)
 
     def _fetch_metadata(self) -> None:
@@ -109,7 +111,7 @@ class SpotifyTrackMedia(AbstractMediaItem):
         Returns SpotifyArtist instance of the track's lead artist
         :return: SpotifyArtist Instance
         """
-        return SpotifyArtist(artist_id=self.meta_artist_id, session=self._session)
+        return SpotifyArtist(artist_id=self.meta_artist_id, user=self._user)
 
     @property
     def album(self) -> 'SpotifyAlbum':
@@ -117,7 +119,7 @@ class SpotifyTrackMedia(AbstractMediaItem):
         Returns SpotifyAlbum instance of the album the current track is in
         :return: SpotifyAlbum Instance
         """
-        return SpotifyAlbum(album_id=self.meta_album_id, session=self._session)
+        return SpotifyAlbum(album_id=self.meta_album_id, user=self._user)
 
     @property
     def lyrics(self) -> tuple[bool, list[str]]:
@@ -177,15 +179,15 @@ class SpotifyTrackMedia(AbstractMediaItem):
 
 class SpotifyEpisodeMedia(AbstractMediaItem):
 
-    def __init__(self, episode_id: str, session: Session, http_cache: Union[str, None] = None) -> None:
+    def __init__(self, episode_id: str, user: 'SpotifyUser', http_cache: Union[str, None] = None) -> None:
         """
         Initialises the spotify podcast episode class instance
         :param episode_id: Episode id
-        :param session: Librespot session object to use
+        :param user:  SpotifyUser to use
         :param http_cache: Path to directory where http request to spotify are cached
         """
         self.http_cache = os.path.abspath(http_cache) if http_cache is not None else None
-        self.set_session(session)
+        self.set_user(user)
         super().__init__(media_id=episode_id, media_type=1)
 
     def _fetch_metadata(self) -> None:
@@ -230,7 +232,7 @@ class SpotifyEpisodeMedia(AbstractMediaItem):
         Returns SpotifyPodcast instance of the podcast the current episode is in
         :return: SpotifyPodcast Instance
         """
-        return SpotifyPodcast(podcast_id=self.meta_podcast_id, session=self._session)
+        return SpotifyPodcast(podcast_id=self.meta_podcast_id, user=self._user)
 
     @property
     def show(self) -> 'SpotifyPodcast':
@@ -245,16 +247,16 @@ class SpotifyAlbum(AbstractMediaCollection):
     _items_id: Union[list[str], None] = None
     _collection_class: SpotifyTrackMedia = SpotifyTrackMedia
 
-    def __init__(self, album_id: str, session: Session, http_cache: Union[str, None] = None) -> None:
+    def __init__(self, album_id: str, user: 'SpotifyUser', http_cache: Union[str, None] = None) -> None:
         """
         Initializes instance of SpotifyAlbum class representing a spotify album
         :param album_id: Spotify ID of the Album
-        :param session: Librespot session object to use
+        :param user: SpotifyUser to use
         :param http_cache: Path to directory where http request to spotify are cached
         :return: None
         """
         self.http_cache = os.path.abspath(http_cache) if http_cache is not None else None
-        self.set_session(session=session)
+        self.set_user(user)
         super().__init__(collection_id=album_id)
 
     def _fetch_metadata(self) -> None:
@@ -314,7 +316,7 @@ class SpotifyAlbum(AbstractMediaCollection):
         Returns SpotifyArtist instance of the lead artist this album is from
         :return:
         """
-        return SpotifyArtist(artist_id=self.meta_artists_id[0], session=self._session)
+        return SpotifyArtist(artist_id=self.meta_artists_id[0], user=self._user)
 
     @property
     def artists(self) -> list['SpotifyArtist']:
@@ -323,7 +325,7 @@ class SpotifyAlbum(AbstractMediaCollection):
         :return:
         """
         return [
-            SpotifyArtist(artist_id=artist_id, session=self._session)
+            SpotifyArtist(artist_id=artist_id, user=self._user)
             for artist_id in
             self.meta_artists_id
         ]
@@ -333,16 +335,16 @@ class SpotifyArtist(AbstractMediaCollection):
     _items_id: Union[list[str], None] = None
     _collection_class: SpotifyAlbum = SpotifyAlbum
 
-    def __init__(self, artist_id: str, session: Session, http_cache: Union[str, None] = None) -> None:
+    def __init__(self, artist_id: str, user: 'SpotifyUser', http_cache: Union[str, None] = None) -> None:
         """
         Initializes instance of SpotifyArtist class representing a spotify artist
         :param artist_id: Spotify ID of the Artist
-        :param session: Librespot session object to use
+        :param user: SpotifyUser to use
         :param http_cache: Path to directory where http request to spotify are cached
         :return: None
         """
         self.http_cache = os.path.abspath(http_cache) if http_cache is not None else None
-        self.set_session(session=session)
+        self.set_user(user)
         super().__init__(collection_id=artist_id)
 
     def _fetch_metadata(self) -> None:
@@ -390,16 +392,16 @@ class SpotifyPlaylist(AbstractMediaCollection):
     _items_id: Union[list[str], None] = None
     _collection_class: SpotifyTrackMedia = SpotifyTrackMedia
 
-    def __init__(self, playlist_id: str, session: Session, http_cache: Union[str, None] = None) -> None:
+    def __init__(self, playlist_id: str, user: 'SpotifyUser', http_cache: Union[str, None] = None) -> None:
         """
         Initializes instance of SpotifyPlaylist class representing a spotify playlist
         :param playlist_id: Spotify ID of the Playlist
-        :param session: Librespot session object to use
+        :param user: SpotifyUser to use
         :param http_cache: Path to directory where http request to spotify are cached
         :return: None
         """
         self.http_cache = os.path.abspath(http_cache) if http_cache is not None else None
-        self.set_session(session)
+        self.set_user(user)
         super().__init__(collection_id=playlist_id)
 
     def _fetch_metadata(self) -> None:
@@ -417,11 +419,12 @@ class SpotifyPlaylist(AbstractMediaCollection):
             'description': sanitize_string(playlist_info['description']),
             'collaborative': playlist_info.get('collaborative', False),
             'public': playlist_info.get('public', False),
-            'total_tracks': int(playlist_info['tracks']['total']),
+            'total_tracks': int(playlist_info['tracks'].get('total', 0)),
             'followers': int(playlist_info['followers']['total']),
             'url': playlist_info['external_urls']['spotify'],
             'scraped_id': playlist_info['id'],
             'thumbnail_url': self.get_thumbnail_url(preferred_size=640000),
+            'snapshot_id': playlist_info.get('snapshot_id', None),
             'owner_name': playlist_info['owner']['display_name'],
             'owner_id': playlist_info['owner']['id'],
             'owner_url': playlist_info['owner']['external_urls']['spotify'],
@@ -468,16 +471,16 @@ class SpotifyPodcast(AbstractMediaCollection):
     _items_id: Union[list[str], None] = None
     _collection_class: SpotifyEpisodeMedia = SpotifyEpisodeMedia
 
-    def __init__(self, podcast_id: str, session: Session, http_cache: Union[str, None] = None) -> None:
+    def __init__(self, podcast_id: str, user: 'SpotifyUser', http_cache: Union[str, None] = None) -> None:
         """
         Initializes instance of SpotifyPodcast class representing a spotify podcast
         :param podcast_id: Spotify ID of the Podcast
-        :param session: Librespot session object to use
+        :param user: SpotifyUser to use
         :param http_cache: Path to directory where http request to spotify are cached
         :return: None
         """
         self.http_cache = os.path.abspath(http_cache) if http_cache is not None else None
-        self.set_session(session=session)
+        self.set_user(user)
         super().__init__(collection_id=podcast_id)
 
     def _fetch_metadata(self) -> None:

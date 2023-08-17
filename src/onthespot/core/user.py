@@ -1,10 +1,25 @@
-from ..core.mediaitem import SpotifyPlaylist, SpotifyTrackMedia
+from ..core.mediaitem import SpotifyPlaylist, SpotifyTrackMedia, SpotifyEpisodeMedia
 from ..common.utils import pick_thumbnail
-from typing import Union
+from typing import Union, TYPE_CHECKING
 import importlib
 import requests
 import os
 import json
+
+if TYPE_CHECKING:
+    from librespot.core import Session
+
+
+def media_items_uri(items: list[SpotifyTrackMedia | SpotifyEpisodeMedia], action: str = 'removed from') -> list[str]:
+    uris = []
+    for item in items:
+        if type(item) == SpotifyTrackMedia:
+            uris.append(f'spotify:track:{item.id}')
+        elif type(item) == SpotifyEpisodeMedia:
+            uris.append(f'spotify:episode:{item.id}')
+        else:
+            raise TypeError(f'Object of type "{type(item)}" cannot be {action} playlist')
+    return uris
 
 
 class SpotifyUser:
@@ -96,7 +111,7 @@ class SpotifyUser:
         """
         if len(tracks) > 50:
             raise RuntimeError('Only 50 tracks can be liked at a time !')
-        liked_add_api: Union[str, None] = 'https://api.spotify.com/v1/me/tracks?ids='+','.join(
+        liked_add_api: Union[str, None] = 'https://api.spotify.com/v1/me/tracks?ids=' + ','.join(
             track.id for track in tracks
         )
         r = requests.put(liked_add_api, headers=self.req_header_scoped('user-library-modify'))
@@ -110,7 +125,7 @@ class SpotifyUser:
         """
         if len(tracks) > 50:
             raise RuntimeError('Only 50 tracks can be unliked at a time !')
-        liked_remove_api: Union[str, None] = 'https://api.spotify.com/v1/me/tracks?ids='+','.join(
+        liked_remove_api: Union[str, None] = 'https://api.spotify.com/v1/me/tracks?ids=' + ','.join(
             track.id for track in tracks
         )
         r = requests.delete(liked_remove_api, headers=self.req_header_scoped('user-library-modify'))
@@ -130,6 +145,145 @@ class SpotifyUser:
         return json.loads(
             requests.get(like_check_api, headers=self.req_header_scoped('user-library-read')).content
         )
+
+    def follow_playlist(self, playlist: SpotifyPlaylist, make_public: bool = False) -> bool:
+        """
+        Follow a spotify playlist as a current user
+        :param playlist: SpotifyPlaylist instance
+        :param make_public: Set true if the followed playlist should be visible on your public profile
+        :return: bool
+        """
+        if (playlist.meta_owner_id != self.userid and not playlist.is_public) or not playlist.is_collaborative:
+            raise RuntimeError(
+                f'Cannot follow a private playlist by user "{playlist.meta_owner_id}:{playlist.meta_owner_name}" '
+            )
+        follow_api: str = f'https://api.spotify.com/v1/playlists/{playlist.id}/followers'
+        r = requests.put(
+            follow_api,
+            headers=self.req_header_scoped('playlist-modify-public,playlist-modify-private'),
+            json={'public': make_public}
+        )
+        return r.status_code == 200
+
+    def unfollow_playlist(self, playlist: SpotifyPlaylist) -> bool:
+        """
+        Unfollow a playlist
+        :param playlist: SpotifyPlaylist instance
+        :return: bool
+        """
+        follow_api: str = f'https://api.spotify.com/v1/playlists/{playlist.id}/followers'
+        # TODO: Find reliable way to determine public/private status of the followed playlist
+        r = requests.delete(
+            follow_api,
+            headers=self.req_header_scoped('playlist-modify-public,playlist-modify-private'),
+        )
+        return r.status_code == 200
+
+    def is_following_playlist(self, playlist: SpotifyPlaylist) -> bool:
+        """
+        Checks if user is following a playlist
+        :param playlist: SpotifyPlaylist instances
+        :return: bool
+        """
+        follow_api: str = f'https://api.spotify.com/v1/playlists/{playlist.id}/followers/contains?ids={self.userid}'
+        data = json.loads(requests.get(follow_api, headers=self.req_header).content)
+        return data[0]
+
+    def new_playlist(self, playlist_name: str, description: str = '',
+                     public: bool = True, collaborative: bool = False) -> SpotifyPlaylist:
+        """
+        Creates a new playlist owned by the user
+        :param description: Description of playlist
+        :param playlist_name: The name of playlist
+        :param public: False if playlist should not be visible in profile
+        :param collaborative: True allows other users to modify this playlist contents
+        :return: SpotifyPlaylist instance
+        """
+        new_playlist_api: str = f'https://api.spotify.com/v1/users/{self.userid}/playlists'
+        r = requests.post(
+            new_playlist_api,
+            headers=self.req_header_scoped('playlist-modify-public,playlist-modify-private'),
+            json={
+                'name': playlist_name,
+                'description': description,
+                'collaborative': collaborative,
+                'public': public if collaborative is False else False
+            }
+        )
+        if r.status_code != 201:
+            raise RuntimeError('Error while creating playlist !')
+        playlist_info = json.loads(r.content)
+        playlist = SpotifyPlaylist(playlist_id=playlist_info['id'], user=self)
+        playlist.set_partial_meta(
+            {
+                'name': playlist_info['name'],
+                'description': playlist_info['description'],
+                'collaborative': playlist_info.get('collaborative', False),
+                'public': playlist_info.get('public', False),
+                'total_tracks': int(playlist_info['tracks']['total']),
+                'followers': int(playlist_info['followers']['total']),
+                'url': playlist_info['external_urls']['spotify'],
+                'scraped_id': playlist_info['id'],
+                'thumbnail_url': '',  # Just created, so it has no thumbnail
+                'snapshot_id': playlist_info['snapshot_id'],
+                'owner_name': playlist_info['owner']['display_name'],
+                'owner_id': playlist_info['owner']['id'],
+                'owner_url': playlist_info['owner']['external_urls']['spotify'],
+                '_raw_metadata': playlist_info,
+            }
+        )
+        playlist._items_id = []
+        playlist._FULL_METADATA_ACQUIRED = True  # Since we have all we need about playlist
+        return playlist
+
+    def add_to_playlist(self, playlist: SpotifyPlaylist, items: list[SpotifyTrackMedia | SpotifyEpisodeMedia],
+                        position: int = 0) -> bool:
+        """
+        Adds SpotifyTrackMedia or SpotifyEpisodeMedia to a playlist
+        :param playlist: SpotifyPlaylist instance
+        :param items: List containing SpotifyTrackMedia or SpotifyEpisodeMedia
+        :param position: Position at which to insert new medias
+        :return: bool
+        """
+        if len(items) > 100:
+            raise RuntimeError('Only 100 items can be added to playlist at a time !')
+        body = {
+            'uris': media_items_uri(items=items, action='added to'),
+            'position': position
+        }
+        add_api = f'https://api.spotify.com/v1/playlists/{playlist.id}/tracks'
+        r = requests.post(
+            add_api,
+            headers=self.req_header_scoped('playlist-modify-public,playlist-modify-private'),
+            json=body
+        )
+        if r.status_code != 201:
+            raise RuntimeError('Items could not be added to playlist')
+        return True
+
+    def remove_from_playlist(self, playlist: SpotifyPlaylist,
+                             items: list[SpotifyTrackMedia | SpotifyEpisodeMedia]) -> bool:
+        """
+        Removes SpotifyTrackMedia or SpotifyEpisodeMedia from a playlist
+        :param playlist: SpotifyPlaylist instance
+        :param items: List containing SpotifyTrackMedia or SpotifyEpisodeMedia
+        :return: bool
+        """
+        if len(items) > 100:
+            raise RuntimeError('Only 100 items can be added to playlist at a time !')
+        body = {
+            'uris': media_items_uri(items=items, action='removed from'),
+            'snapshot_id': playlist.meta_snapshot_id
+        }
+        add_api = f'https://api.spotify.com/v1/playlists/{playlist.id}/tracks'
+        r = requests.delete(
+            add_api,
+            headers=self.req_header_scoped('playlist-modify-public,playlist-modify-private'),
+            json=body
+        )
+        if r.status_code != 200:
+            raise RuntimeError('Items could not be added to playlist')
+        return True
 
     @property
     def session(self) -> 'Session':
@@ -161,7 +315,7 @@ class SpotifyUser:
             for playlist_item in my_library_info['items']:
                 playlist = SpotifyPlaylist(
                     playlist_id=playlist_item['id'],
-                    session=self,
+                    user=self,
                 )
                 playlist._covers = playlist_item['images']
                 playlist.set_partial_meta(
@@ -198,7 +352,7 @@ class SpotifyUser:
             for track_item in my_liked_info['items']:
                 track = SpotifyTrackMedia(
                     track_id=track_item['track']['id'],
-                    session=self,  # TODO: Fix http cache
+                    user=self,  # TODO: Fix http cache
 
                 )
                 track._covers = track_item['track']['album']['images']

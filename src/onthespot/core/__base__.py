@@ -1,14 +1,17 @@
-from typing import Optional, Any, Union
+from typing import Optional, Any, Union, TYPE_CHECKING
 from io import BytesIO
 import requests
 from PIL import Image
-from librespot.core import Session
 from librespot.audio import PlayableContentFeeder
 from librespot.audio.decoders import AudioQuality, VorbisOnlyAudioQuality
 from librespot.metadata import TrackId, EpisodeId
 from ..expections import MedaFetchInterruptedException, ThumbnailUnavailableException, UnknownMediaTypeException, \
     UnplayableMediaException, StreamReadException
 from ..common.utils import pick_thumbnail
+
+
+if TYPE_CHECKING:
+    from ..core.user import SpotifyUser
 
 
 class SpotifyMediaProperty:
@@ -19,7 +22,7 @@ class SpotifyMediaProperty:
     _covers: Union[list[dict], None] = None
     _metadata: Union[dict, None] = None
     _thumbnail: Union[BytesIO, None] = None
-    _session: Union[Session, None] = None
+    _user: Union['SpotifyUser', None] = None
     __token: Union[str, None] = None
     _FULL_METADATA_ACQUIRED: bool = False
 
@@ -53,6 +56,8 @@ class SpotifyMediaProperty:
         :return:
         """
         self._FULL_METADATA_ACQUIRED = False
+        if self._metadata is None:
+            self._metadata = {}
         for key in meta_dict:
             self._metadata[key] = meta_dict[key]
 
@@ -88,13 +93,13 @@ class SpotifyMediaProperty:
         self._thumbnail.seek(0)
         return self._thumbnail.read()
 
-    def set_session(self, session: Session) -> None:
+    def set_user(self, user: 'SpotifyUser') -> None:
         """
         Sets the librespot session to be used with spotify
-        :param session:
+        :param user: SpotifyUser to use by default
         :return:
         """
-        self._session = session
+        self._user = user
 
     @property
     def session_token(self) -> str:
@@ -103,7 +108,7 @@ class SpotifyMediaProperty:
         :return: String: Session token
         """
         if self.__token is None:
-            self.__token = self._session.tokens().get("user-read-email")
+            self.__token = self._user.session.tokens().get("user-read-email")
         return self.__token
 
     @property
@@ -220,10 +225,9 @@ class AbstractMediaItem(SpotifyMediaProperty):
         self.reset_stream()
         return raw_media
 
-    @property
-    def media_stream(self) -> PlayableContentFeeder.LoadedStream:
+    def media_stream_as_user(self, user: 'SpotifyUser') -> PlayableContentFeeder.LoadedStream:
         """
-        Returns the media stream for the current spotify media
+        Returns the media stream for the current spotify media with set user
         :return: LoadedStream
         """
         if self.__stream is not None:
@@ -233,7 +237,7 @@ class AbstractMediaItem(SpotifyMediaProperty):
         if self.__media_type not in [0, 1]:
             raise UnknownMediaTypeException('Not a track or podcast. Unknown media type !')
         if self.__use_audio_quality is None:
-            if self._session.get_user_attribute("type") == "premium":
+            if user.session.get_user_attribute("type") == "premium":
                 quality = AudioQuality.VERY_HIGH
         else:
             quality = self.__use_audio_quality
@@ -245,8 +249,16 @@ class AbstractMediaItem(SpotifyMediaProperty):
             if self.__media_type == 0 else \
             EpisodeId.from_base62(self.meta_scraped_id)
 
-        self.__stream = self._session.content_feeder().load(media_id, VorbisOnlyAudioQuality(quality), False, None)
+        self.__stream = user.session.content_feeder().load(media_id, VorbisOnlyAudioQuality(quality), False, None)
         return self.__stream
+
+    @property
+    def media_stream(self) -> PlayableContentFeeder.LoadedStream:
+        """
+        Returns the media stream for the current spotify media with current user
+        :return: LoadedStream
+        """
+        return self.media_stream_as_user(user=self._user)
 
     @property
     def type(self) -> int:
@@ -282,7 +294,7 @@ class AbstractMediaCollection(SpotifyMediaProperty):
             # If the item list is not yet created and full meta was not fetched, fetch it now
             self._fetch_metadata()
         for item_id in self._items_id:
-            item = self._collection_class(item_id, self._session)
+            item = self._collection_class(item_id, self._user)
             item.set_partial_meta(self._items_partial_meta.get(item_id, {}))
             yield item
 
