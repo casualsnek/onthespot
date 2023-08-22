@@ -134,7 +134,7 @@ class SpotifyTrackMedia(AbstractMediaItem):
             lyrics_api = f'https://spclient.wg.spotify.com/lyrics/v1/track/{self.id}?format=json&market=from_token'
             lyrics_req = json.loads(cached_request(self.http_cache, 0, lyrics_api, headers=self.req_header))
             artist = metadata_list_to_string(self.meta_artists)
-            track_title = self.meta_title
+            track_title = self.meta_name
             album = self.meta_album_name
             l_ms = self.meta_duration
             if lyrics_req.status_code == 200:

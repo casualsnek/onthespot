@@ -327,7 +327,7 @@ class AbstractMediaItem(SpotifyMediaProperty):
                 # Wait until we have any playable bytes from the thread
                 time.sleep(0.1)
         player_process.stdin.close()
-        player_process.wait()
+        player_process.terminate()
         self.reset_stream()
 
     @property
