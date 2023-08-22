@@ -1,3 +1,6 @@
+import subprocess
+import threading
+import time
 from typing import Optional, Any, Union, TYPE_CHECKING
 from io import BytesIO
 import requests
@@ -8,7 +11,6 @@ from librespot.metadata import TrackId, EpisodeId
 from ..expections import MedaFetchInterruptedException, ThumbnailUnavailableException, UnknownMediaTypeException, \
     UnplayableMediaException, StreamReadException
 from ..common.utils import pick_thumbnail
-
 
 if TYPE_CHECKING:
     from ..core.user import SpotifyUser
@@ -166,7 +168,8 @@ class AbstractMediaItem(SpotifyMediaProperty):
         """
         Base class representing a singleton-playable spotify medias like tracks and episodes
         :param media_id: Spotify ID of media
-        :param media_type: Type of media 0/1. 0 for tracks 1 for episodes
+        :param media_type: Type of media 0/1.
+        Zero for tracks and one for episodes
         """
         self.__media_type = media_type
         super().__init__(media_id=media_id)
@@ -207,16 +210,17 @@ class AbstractMediaItem(SpotifyMediaProperty):
                 raw_media += data
             if pg_notify is not None:
                 pg_notify(len(raw_media), total_size, 'Downloading')
-            if len(data) == 0 and chunk_size > skip_at_end_bytes:
-                pg_notify(0, 1, 'Read Error')
-                self.reset_stream()
-                raise StreamReadException(
-                    f'Failed to stream for media "{self.id}" properly.Might be due to parallel use of session '
-                )
             if len(data) == 0 and chunk_size <= skip_at_end_bytes:
                 break
             if (total_size - len(raw_media)) < chunk_size:
                 chunk_size = total_size - len(raw_media)
+            if len(data) == 0 and chunk_size > skip_at_end_bytes:
+                pg_notify(0, 1, 'Read Error')
+                self.reset_stream()
+                raise StreamReadException(
+                    f'Failed to stream for media "{self.id}" properly.Might be due to parallel use of session. '
+                    f'{total_size - len(raw_media)} bytes were not read ! Ignorable bytes: {skip_at_end_bytes}'
+                )
         if self.id in stop_check_list:
             stop_check_list.pop(stop_check_list.index(self.id))
             pg_notify(0, 1, 'Cancelled')
@@ -249,8 +253,82 @@ class AbstractMediaItem(SpotifyMediaProperty):
             if self.__media_type == 0 else \
             EpisodeId.from_base62(self.meta_scraped_id)
 
-        self.__stream = user.session.content_feeder().load(media_id, VorbisOnlyAudioQuality(quality), False, None)
+        self.__stream = user.session.content_feeder().load(
+            media_id, VorbisOnlyAudioQuality(quality), False, None
+        )
         return self.__stream
+
+    def play(self, ffplay_path: str | None = None, chunk_size=1024, skip_at_end_bytes=167) -> None:
+        """
+        Plays the media with ffplay.
+        :param ffplay_path: Full path to ffplay binary.
+        :param chunk_size: Size of chunks in bytes to read at a time.
+        :param skip_at_end_bytes: Bytes at the end of stream, whom if missed can be safely ignored
+        :return: None
+        """
+
+        def fetch_thread_worker(media_container: list[bytes], media_stream, chunk: int = 50000,
+                                skip_at_end: int = 167) -> None:
+            """
+            Worker thread for fetching media
+            :param media_container: Container where fetched media will be added to
+            :param media_stream: media_stream property
+            :param chunk: Size of chunks in bytes to read at a time
+            :param skip_at_end: Bytes at the end of stream if missed can be safely ignored
+            :return: None
+            """
+            total_size: int = media_stream.input_stream.size
+            size_fetched: int = 0
+            while size_fetched < total_size:
+                data: bytes = self.media_stream.input_stream.stream().read(chunk)
+                if len(data) == 0 and chunk <= skip_at_end:
+                    break
+                if (total_size - size_fetched) < chunk:
+                    chunk = total_size - size_fetched
+                if len(data) == 0 and chunk > skip_at_end:
+                    media_container.append(b'')
+                    raise StreamReadException(
+                        f'Failed to stream for media "{self.id}" properly. Might be due to parallel use of session. '
+                        f'{total_size - size_fetched} bytes were not read ! Ignorable bytes: {skip_at_end}'
+                    )
+                size_fetched += len(data)
+                media_container.append(data)
+            media_container.append(b'')
+
+        container: list[bytes] = []
+        index_to_play: int = 0
+        player_process = subprocess.Popen(
+            ['ffplay' if ffplay_path is None else ffplay_path, '-autoexit', '-nodisp', '-i', '-'],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=False
+        )
+        self.reset_stream()
+        thread: threading.Thread = threading.Thread(
+            target=fetch_thread_worker, args=(
+                container,
+                self.media_stream,
+                chunk_size,
+                skip_at_end_bytes
+            )
+        )
+        thread.start()
+        while True:
+            if len(container) > index_to_play:
+                # We have some content that we can play
+                playable_bytes: bytes = container[index_to_play]
+                if playable_bytes == b'':
+                    # Nothing to play
+                    break
+                player_process.stdin.write(playable_bytes)
+                index_to_play += 1
+            else:
+                # Wait until we have any playable bytes from the thread
+                time.sleep(0.1)
+        player_process.stdin.close()
+        player_process.wait()
+        self.reset_stream()
 
     @property
     def media_stream(self) -> PlayableContentFeeder.LoadedStream:
@@ -263,7 +341,7 @@ class AbstractMediaItem(SpotifyMediaProperty):
     @property
     def type(self) -> int:
         """
-        Returns a type of media this instance holds, 0 for tracks, 1 for podcast episode
+        Returns a type of media this instance holds, Zero for tracks, One for podcast episode
         :return: 0 or 1
         """
         return self.__media_type

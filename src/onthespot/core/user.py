@@ -172,7 +172,6 @@ class SpotifyUser:
         :return: bool
         """
         follow_api: str = f'https://api.spotify.com/v1/playlists/{playlist.id}/followers'
-        # TODO: Find reliable way to determine public/private status of the followed playlist
         r = requests.delete(
             follow_api,
             headers=self.req_header_scoped('playlist-modify-public,playlist-modify-private'),
