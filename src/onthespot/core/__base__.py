@@ -10,7 +10,9 @@ from librespot.audio.decoders import AudioQuality, VorbisOnlyAudioQuality
 from librespot.metadata import TrackId, EpisodeId
 from ..expections import MedaFetchInterruptedException, ThumbnailUnavailableException, UnknownMediaTypeException, \
     UnplayableMediaException, StreamReadException
-from ..common.utils import pick_thumbnail
+from ..common.utils import pick_thumbnail, MutableBool
+from mutagen.oggvorbis import OggVorbis
+import mutagen
 
 if TYPE_CHECKING:
     from ..core.user import SpotifyUser
@@ -245,64 +247,98 @@ class AbstractMediaItem(SpotifyMediaProperty):
                 quality = AudioQuality.VERY_HIGH
         else:
             quality = self.__use_audio_quality
-        if not self.meta_is_playable:
-            raise UnplayableMediaException(
-                f'The media "{self.id}" of type "{self.__media_type}" is unplayable exception'
-            )
+        if self._FULL_METADATA_ACQUIRED:
+            if not self.meta_is_playable:
+                raise UnplayableMediaException(
+                    f'The media "{self.id}" of type "{self.__media_type}" is unplayable'
+                )
         media_id: Union[TrackId, EpisodeId, None] = TrackId.from_base62(self.meta_scraped_id) \
             if self.__media_type == 0 else \
             EpisodeId.from_base62(self.meta_scraped_id)
-
-        self.__stream = user.session.content_feeder().load(
-            media_id, VorbisOnlyAudioQuality(quality), False, None
-        )
+        try:
+            self.__stream = user.session.content_feeder().load(
+                media_id, VorbisOnlyAudioQuality(quality), False, None
+            )
+        except RuntimeError as e:
+            if 'Cannot get alternative track' in str(e):
+                if not self._FULL_METADATA_ACQUIRED:
+                    self.set_partial_meta(
+                        {
+                            'is_playable': False
+                        }
+                    )
+                raise UnplayableMediaException(
+                    f'The media "{self.id}" of type "{self.__media_type}" is unplayable'
+                )
+            else:
+                raise e
         return self.__stream
 
-    def play(self, ffplay_path: str | None = None, chunk_size=1024, skip_at_end_bytes=167) -> None:
+    def play(self, ffplay_path: str | None = None, chunk_size=1024, skip_at_end_bytes=167,
+             stop_marker: MutableBool | None = None) -> None:
         """
         Plays the media with ffplay.
         :param ffplay_path: Full path to ffplay binary.
         :param chunk_size: Size of chunks in bytes to read at a time.
         :param skip_at_end_bytes: Bytes at the end of stream, whom if missed can be safely ignored
+        :param stop_marker: MutableBool, when set to true stops playback process
         :return: None
         """
 
-        def fetch_thread_worker(media_container: list[bytes], media_stream, chunk: int = 50000,
-                                skip_at_end: int = 167) -> None:
+        def fetch_thread_worker(media_container: list[tuple[float, bytes]], media_stream, chunk: int = 50000,
+                                skip_at_end: int = 167, halt_marker: MutableBool | None = None) -> None:
             """
             Worker thread for fetching media
-            :param media_container: Container where fetched media will be added to
-            :param media_stream: media_stream property
-            :param chunk: Size of chunks in bytes to read at a time
-            :param skip_at_end: Bytes at the end of stream if missed can be safely ignored
+            :param halt_marker: MutableBool | If set to true externally terminates fetching.
+            :param media_container: List | Container where fetched media will be added to.
+            :param media_stream: Media_stream property.
+            :param chunk: Int | Size of chunks in bytes to read at a time.
+            :param skip_at_end: Int | Bytes at the end of stream if missed can be safely ignored.
             :return: None
             """
             total_size: int = media_stream.input_stream.size
             size_fetched: int = 0
-            while size_fetched < total_size:
+            pending_data: bytes = b''
+            full_data: bytes = b''
+            length_till_last_segment: float = 0.0
+            if halt_marker is None:
+                halt_marker = MutableBool(False)
+            while size_fetched < total_size and not bool(halt_marker):
                 data: bytes = self.media_stream.input_stream.stream().read(chunk)
+                pending_data += data
                 if len(data) == 0 and chunk <= skip_at_end:
                     break
                 if (total_size - size_fetched) < chunk:
                     chunk = total_size - size_fetched
                 if len(data) == 0 and chunk > skip_at_end:
-                    media_container.append(b'')
+                    media_container.append((0.0, b''))
                     raise StreamReadException(
                         f'Failed to stream for media "{self.id}" properly. Might be due to parallel use of session. '
                         f'{total_size - size_fetched} bytes were not read ! Ignorable bytes: {skip_at_end}'
                     )
                 size_fetched += len(data)
-                media_container.append(data)
-            media_container.append(b'')
+                try:
+                    full_data += data
+                    ogg_data = mutagen.oggvorbis.OggVorbis(BytesIO(full_data))
+                    length_till_now: float = ogg_data.info.length
+                    this_segment_length = length_till_now - length_till_last_segment
+                    length_till_last_segment = length_till_now
+                    media_container.append((this_segment_length, pending_data))
+                    pending_data = b''
+                except mutagen.oggvorbis.OggVorbisHeaderError:
+                    pass
+            media_container.append((0.0, b''))
 
-        container: list[bytes] = []
-        index_to_play: int = 0
+        container: list[tuple[float, bytes]] = []
+        stop_marker: MutableBool = MutableBool(False) if stop_marker is None else stop_marker
         player_process = subprocess.Popen(
-            ['ffplay' if ffplay_path is None else ffplay_path, '-autoexit', '-nodisp', '-i', '-'],
+            ['ffplay' if ffplay_path is None else ffplay_path,
+             '-nodisp', '-i', '-'],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=False
+            text=False,
+            bufsize=0,
         )
         self.reset_stream()
         thread: threading.Thread = threading.Thread(
@@ -310,24 +346,54 @@ class AbstractMediaItem(SpotifyMediaProperty):
                 container,
                 self.media_stream,
                 chunk_size,
-                skip_at_end_bytes
+                skip_at_end_bytes,
+                stop_marker
             )
         )
         thread.start()
+        estimated_playback_end_on: float = 0.0
+        next_frame_critical_time: float = 0.0
+        total_media_len: float = 0.0
         while True:
-            if len(container) > index_to_play:
-                # We have some content that we can play
-                playable_bytes: bytes = container[index_to_play]
-                if playable_bytes == b'':
-                    # Nothing to play
-                    break
-                player_process.stdin.write(playable_bytes)
-                index_to_play += 1
-            else:
-                # Wait until we have any playable bytes from the thread
-                time.sleep(0.1)
-        player_process.stdin.close()
-        player_process.terminate()
+            try:
+                if len(container) > 0:
+                    if next_frame_critical_time != 0.0:
+                        if time.time() > next_frame_critical_time + 0.03:
+                            # This frame arrived too late
+                            estimated_playback_end_on += time.time() - next_frame_critical_time
+                            print(f'Frame arrived {time.time() - next_frame_critical_time} seconds late')
+                    if estimated_playback_end_on == 0.0:
+                        estimated_playback_end_on = time.time()
+                        print(f'Playback started on: {estimated_playback_end_on}')
+                    # We have some content that we can play
+                    segment: tuple[float, bytes] = container.pop(0)
+                    playable_bytes: bytes = segment[1]
+                    if playable_bytes == b'':
+                        break
+                    estimated_playback_end_on += segment[0]
+                    total_media_len += segment[0]
+                    player_process.stdin.write(playable_bytes)
+                    next_frame_critical_time = time.time() + segment[0]
+                else:
+                    # Wait until we have any playable bytes from the thread
+                    time.sleep(0.1)
+            except (KeyboardInterrupt, BrokenPipeError):
+                # If the fetching was not complete, try stopping it
+                stop_marker.set(True)  # This should cause fetching thread to stop
+                thread.join(timeout=2)
+                break
+        time_to_wait: int = 0
+        if estimated_playback_end_on > time.time():
+            time_to_wait = int(estimated_playback_end_on - time.time())
+        print(f'Total media len: {total_media_len}')
+        print(f'Cur time: {time.time()}')
+        print(f'TTW: {time_to_wait}')
+        time.sleep(time_to_wait)
+        try:
+            player_process.stdin.close()
+            player_process.terminate()
+        except BrokenPipeError:
+            pass
         self.reset_stream()
 
     @property

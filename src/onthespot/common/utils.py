@@ -127,3 +127,17 @@ def pick_thumbnail(covers: list[dict], preferred_size: int = 640000) -> str:
         if size >= preferred_size:
             return images[size]
     return images[available_sizes[-1]] if len(available_sizes) > 0 else ""
+
+class MutableBool:
+    def __init__(self, value: bool = False):
+        self.__value = None
+        self.set(bool(value))
+
+    def set(self, value: bool):
+        self.__value = bool(value)
+
+    def __bool__(self):
+        return self.__value
+
+    def __int__(self):
+        return 1 if self.__value else 0

@@ -494,7 +494,7 @@ class SpotifyPodcast(AbstractMediaCollection):
         self._covers = podcast_info['images']
         self._metadata = {
             'name': podcast_info['name'],
-            'publisher': podcast_info['name'],
+            'publisher': podcast_info['publisher'],
             'description': podcast_info['description'],
             'scraped_id': podcast_info['id'],
             'url': podcast_info['external_urls']['spotify'],
