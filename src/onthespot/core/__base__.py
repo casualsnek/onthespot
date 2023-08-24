@@ -351,27 +351,23 @@ class AbstractMediaItem(SpotifyMediaProperty):
             )
         )
         thread.start()
-        estimated_playback_end_on: float = 0.0
-        next_frame_critical_time: float = 0.0
-        total_media_len: float = 0.0
+        estimated_playback_end_on: float = 0.0  # Estimated time when all received bytes would have finished playing
+        next_frame_critical_time: float = 0.0  # Time within which, next audio chunk should be available for smooth play
         while True:
             try:
                 if len(container) > 0:
                     if next_frame_critical_time != 0.0:
                         if time.time() > next_frame_critical_time + 0.03:
-                            # This frame arrived too late
                             estimated_playback_end_on += time.time() - next_frame_critical_time
                             print(f'Frame arrived {time.time() - next_frame_critical_time} seconds late')
                     if estimated_playback_end_on == 0.0:
                         estimated_playback_end_on = time.time()
                         print(f'Playback started on: {estimated_playback_end_on}')
-                    # We have some content that we can play
                     segment: tuple[float, bytes] = container.pop(0)
                     playable_bytes: bytes = segment[1]
                     if playable_bytes == b'':
                         break
                     estimated_playback_end_on += segment[0]
-                    total_media_len += segment[0]
                     player_process.stdin.write(playable_bytes)
                     next_frame_critical_time = time.time() + segment[0]
                 else:
@@ -385,10 +381,10 @@ class AbstractMediaItem(SpotifyMediaProperty):
         time_to_wait: int = 0
         if estimated_playback_end_on > time.time():
             time_to_wait = int(estimated_playback_end_on - time.time())
-        print(f'Total media len: {total_media_len}')
         print(f'Cur time: {time.time()}')
         print(f'TTW: {time_to_wait}')
-        time.sleep(time_to_wait)
+        if not bool(stop_marker):
+            time.sleep(time_to_wait)
         try:
             player_process.stdin.close()
             player_process.terminate()

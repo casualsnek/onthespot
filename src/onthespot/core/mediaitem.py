@@ -53,6 +53,7 @@ class SpotifyTrackMedia(AbstractMediaItem):
             cached_request(self.http_cache, 0, track_info['tracks'][0]['artists'][0]['href'] + '?market=from_token',
                            headers=self.req_header)
         )
+        date_segments: list = track_info['tracks'][0]['album']['release_date'].split("-")
         self._covers = track_info['tracks'][0]['album']['images']
         self._metadata = {
             'artists': [
@@ -68,9 +69,9 @@ class SpotifyTrackMedia(AbstractMediaItem):
             'album_url': track_info['tracks'][0]['album']['external_urls']['spotify'],
             'album_id': track_info['tracks'][0]['album']['id'],
             'thumbnail_url': self.get_thumbnail_url(preferred_size=640000),
-            'release_year': int(track_info['tracks'][0]['album']['release_date'].split("-")[0]),
-            'release_month': int(track_info['tracks'][0]['album']['release_date'].split("-")[1]),
-            'release_day': int(track_info['tracks'][0]['album']['release_date'].split("-")[2]),
+            'release_year': int(date_segments[0] if len(date_segments) >= 1 else 0),
+            'release_month': int(date_segments[1] if len(date_segments) >= 2 else 0),
+            'release_day': int(date_segments[2] if len(date_segments) >= 3 else 0),
             'disc_number': int(track_info['tracks'][0]['disc_number']),
             'track_number': int(track_info['tracks'][0]['track_number']),
             'total_tracks': int(track_info['tracks'][0]['album']['total_tracks']),
@@ -268,14 +269,15 @@ class SpotifyAlbum(AbstractMediaCollection):
         album_api: str = f'https://api.spotify.com/v1/albums/{self.id}?market=from_token'
         album_info: dict = json.loads(cached_request(self.http_cache, 0, album_api, headers=self.req_header))
         self._covers = album_info['images']
+        date_segments: list = album_info['release_date'].split("-")
         self._metadata = {
             'name': album_info['name'],
             'total_tracks': int(album_info['total_tracks']),
             'url': album_info['external_urls']['spotify'],
             'scraped_id': album_info['id'],
-            'release_year': int(album_info['release_date'].split("-")[0]),
-            'release_month': int(album_info['release_date'].split("-")[1]),
-            'release_day': int(album_info['release_date'].split("-")[2]),
+            'release_year': int(date_segments[0] if len(date_segments) >= 1 else 0),
+            'release_month': int(date_segments[1] if len(date_segments) >= 2 else 0),
+            'release_day': int(date_segments[2] if len(date_segments) >= 3 else 0),
             'thumbnail_url': self.get_thumbnail_url(preferred_size=640000),
             '_raw_metadata': album_info,
             'label': album_info['label'],

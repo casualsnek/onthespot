@@ -1,5 +1,5 @@
-from ..core.mediaitem import SpotifyPlaylist, SpotifyTrackMedia, SpotifyEpisodeMedia
-from ..common.utils import pick_thumbnail
+from ..core.mediaitem import SpotifyPlaylist, SpotifyTrackMedia, SpotifyEpisodeMedia, SpotifyArtist
+from ..common.utils import pick_thumbnail, GENRES
 from typing import Union, TYPE_CHECKING
 import importlib
 import requests
@@ -103,7 +103,7 @@ class SpotifyUser:
         """
         return {"Authorization": "Bearer %s" % self.auth_token_scoped(scope)}
 
-    def like_track(self, tracks: list[SpotifyTrackMedia]) -> bool:
+    def like_tracks(self, tracks: list[SpotifyTrackMedia]) -> bool:
         """
         Add a spotify track to user's liked playlist
         :param tracks: List of SpotifyTrackMedia instances
@@ -284,6 +284,140 @@ class SpotifyUser:
             raise RuntimeError('Items could not be added to playlist')
         return True
 
+    def get_recommendations(self,
+                            limit: int = 10,
+                            audio_params_like: list[SpotifyTrackMedia] | None = None,
+                            user_audio_params: dict | None = None,
+                            seed_artists: list[SpotifyArtist] | None = None,
+                            seed_tracks: list[SpotifyTrackMedia] | None = None,
+                            seed_genres: list[str] | None = None,
+                            ) -> list[SpotifyTrackMedia]:
+        """
+        Get recommended tracks based on other tracks.
+        :param user_audio_params: Audio parameters to use.
+        :param limit: Number of recommended tracks to get
+        :param seed_genres: Genres that will be used for seeding recommendations.
+        :param seed_tracks: Tracks that will be used for seeding recommendations.
+        :param audio_params_like: List of SpotifyTrackMedia used for getting audio parameters.
+        :param seed_artists: Tracks that will be used for seeding recommendations.
+        :return: List of SpotifyTrackMedia
+        """
+        recommendation_api: str = f'https://api.spotify.com/v1/recommendations?limit={limit}&'
+        audio_params_api: str = 'https://api.spotify.com/v1/audio-features?ids='
+        if audio_params_like is None:
+            audio_params_like = []
+        if len(audio_params_like) > 100:
+            raise RuntimeError('Maximum of 100 tracks can be used for audio parameters')
+        if user_audio_params is None:
+            user_audio_params = {}
+        if seed_artists is None:
+            seed_artists = []
+        if seed_genres is None:
+            seed_genres = []
+        if seed_tracks is None:
+            seed_tracks = []
+
+        # Remove duplicates
+        seed_genres = list(GENRES.intersection(set(seed_genres)))
+        seed_artists_ids = list(set(artist.id for artist in seed_artists))
+        seed_tracks_ids = list(set(track.id for track in seed_tracks))
+
+        total_seeds = len(seed_tracks_ids) + len(seed_artists_ids) + len(seed_genres)
+        if total_seeds > 5 or total_seeds < 1:
+            raise RuntimeError('Any combination of seed can only be 5 items or less! and more than 1')
+
+        if len(seed_artists_ids) > 0:
+            recommendation_api += f'seed_artists={",".join(item_id for item_id in seed_artists_ids)}&'
+        if len(seed_genres) > 0:
+            recommendation_api += f'seed_genres={",".join(item_id for item_id in seed_genres)}&'
+        if len(seed_tracks_ids) > 0:
+            recommendation_api += f'seed_tracks={",".join(item_id for item_id in seed_tracks_ids)}&'
+
+        auto_audio_params: dict = {}
+        audio_params: dict = {}
+        if len(audio_params_like) > 0:
+            audio_params_api += ','.join(track.id for track in audio_params_like)
+            resp = requests.get(
+                audio_params_api,
+                headers=self.req_header
+            )
+            if resp.status_code == 200:
+                auto_audio_params = json.loads(resp.content)['audio_params']
+        valid_params_heads: list[str] = [
+            'acousticness',
+            'danceability',
+            'duration_ms',
+            'energy',
+            'instrumentalness',
+            'key',
+            'liveness',
+            'loudness',
+            'mode',
+            'popularity',
+            'speechiness',
+            'tempo',
+            'time_signature',
+            'valence'
+        ]
+        all_valids: list[str] = []
+        for key in valid_params_heads:
+            all_valids.append(f'min_{key}')
+            all_valids.append(f'max_{key}')
+            all_valids.append(f'takget_{key}')
+
+        # Fill the auto-fetched values
+        for key in auto_audio_params:
+            if 'target_'+key in all_valids:
+                audio_params['target_'+key] = auto_audio_params[key]
+        # Override and fill user set params
+        for key in user_audio_params:
+            if key in all_valids:
+                audio_params[key] = user_audio_params[key]
+        for key in audio_params:
+            recommendation_api += f'{key}={audio_params[key]}&'
+        recommendation_api = recommendation_api.rstrip('&')
+        req = requests.get(
+            recommendation_api,
+            headers=self.req_header
+        )
+        if req.status_code != 200:
+            raise RuntimeError(f'Error with spotify API, "{recommendation_api}", response {req.status_code}: {req.text}')
+        for track in json.loads(req.content)['tracks']:
+            track_instance = SpotifyTrackMedia(track['id'], user=self)
+            date_segments: list = track['album']['release_date'].split("-")
+            track_instance.set_partial_meta(
+                {
+                    'artists': [
+                        data['name']
+                        for data in
+                        track['artists']
+                    ],
+                    'album_name': track['album']["name"],
+                    'name': track['name'],
+                    'url': track['external_urls']['spotify'],
+                    'artist_url': track['artists'][0]['external_urls']['spotify'],
+                    'artist_id': track['artists'][0]['id'],
+                    'album_url': track['album']['external_urls']['spotify'],
+                    'album_id': track['album']['id'],
+                    'thumbnail_url': pick_thumbnail(track['album']['images'], preferred_size=640000),
+                    'release_year': int(date_segments[0] if len(date_segments) >= 1 else 0),
+                    'release_month': int(date_segments[2] if len(date_segments) >= 2 else 0),
+                    'release_day': int(date_segments[0] if len(date_segments) >= 3 else 0),
+                    'disc_number': int(track['disc_number']),
+                    'track_number': int(track['track_number']),
+                    'total_tracks': int(track['album']['total_tracks']),
+                    'preview_url': track['preview_url'],
+                    'scraped_id': track['id'],
+                    'popularity': track['popularity'],
+                    'isrc': track['external_ids'].get('isrc', None),
+                    'upc': track['external_ids'].get('upc', None),
+                    'ean': track['external_ids'].get('ean', None),
+                    'duration': track['duration_ms'],
+                    'explicit': track['explicit'],
+                }
+            )
+            yield track_instance
+
     @property
     def session(self) -> 'Session':
         """
@@ -358,6 +492,7 @@ class SpotifyUser:
 
                 )
                 track._covers = track_item['track']['album']['images']
+                date_segments: list = track_item['album']['release_date'].split("-")
                 track.set_partial_meta({
                     'artists': [
                         data['name']
@@ -372,9 +507,9 @@ class SpotifyUser:
                     'album_url': track_item['track']['album']['external_urls']['spotify'],
                     'album_id': track_item['track']['album']['id'],
                     'thumbnail_url': pick_thumbnail(track_item['track']['album']['images'], preferred_size=640000),
-                    'release_year': int(track_item['track']['album']['release_date'].split("-")[0]),
-                    'release_month': int(track_item['track']['album']['release_date'].split("-")[1]),
-                    'release_day': int(track_item['track']['album']['release_date'].split("-")[2]),
+                    'release_year': int(date_segments[0] if len(date_segments) >= 1 else 0),
+                    'release_month': int(date_segments[1] if len(date_segments) >= 2 else 0),
+                    'release_day': int(date_segments[2] if len(date_segments) >= 3 else 0),
                     'disc_number': int(track_item['track']['disc_number']),
                     'track_number': int(track_item['track']['track_number']),
                     'total_tracks': int(track_item['track']['album']['total_tracks']),

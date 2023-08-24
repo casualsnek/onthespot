@@ -114,15 +114,16 @@ class SearchResult:
             album_list = self.api_resp['albums']['items']
         for album in album_list:
             album_instance: SpotifyAlbum = SpotifyAlbum(album['id'], user=self.__user, **self.__map)
+            date_segments: list = album['release_date'].split("-")
             album_instance.set_partial_meta(
                 {
                     'name': album['name'],
                     'total_tracks': int(album['total_tracks']),
                     'url': album['external_urls']['spotify'],
                     'scraped_id': album['id'],
-                    'release_year': int(album['release_date'].split("-")[0]),
-                    'release_month': int(album['release_date'].split("-")[1]),
-                    'release_day': int(album['release_date'].split("-")[2]),
+                    'release_year': int(date_segments[0] if len(date_segments) >= 1 else 0),
+                    'release_month': int(date_segments[1] if len(date_segments) >= 2 else 0),
+                    'release_day': int(date_segments[2] if len(date_segments) >= 3 else 0),
                     'thumbnail_url': pick_thumbnail(album['images'], preferred_size=640000),
                     'artists_id': [artist['id'] for artist in album['artists'] if artist['type'] == 'artist'],
                 }
@@ -140,6 +141,7 @@ class SearchResult:
             track_list = self.api_resp['tracks']['items']
         for track in track_list:
             track_instance: SpotifyTrackMedia = SpotifyTrackMedia(track['id'], user=self.__user, **self.__map)
+            date_segments: list = track['album']['release_date'].split("-")
             track_instance.set_partial_meta(
                 {
                     'artists': [
@@ -155,9 +157,9 @@ class SearchResult:
                     'album_url': track['album']['external_urls']['spotify'],
                     'album_id': track['album']['id'],
                     'thumbnail_url': pick_thumbnail(track['album']['images'], preferred_size=640000),
-                    'release_year': int(track['album']['release_date'].split("-")[0]),
-                    'release_month': int(track['album']['release_date'].split("-")[1]),
-                    'release_day': int(track['album']['release_date'].split("-")[2]),
+                    'release_year': int(date_segments[0] if len(date_segments) >= 1 else 0),
+                    'release_month': int(date_segments[1] if len(date_segments) >= 2 else 0),
+                    'release_day': int(date_segments[2] if len(date_segments) >= 3 else 0),
                     'disc_number': int(track['disc_number']),
                     'track_number': int(track['track_number']),
                     'total_tracks': int(track['album']['total_tracks']),
