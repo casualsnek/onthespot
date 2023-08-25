@@ -350,12 +350,20 @@ class AbstractMediaItem(SpotifyMediaProperty):
                 stop_marker
             )
         )
+        thread.daemon = True
         thread.start()
         estimated_playback_end_on: float = 0.0  # Estimated time when all received bytes would have finished playing
         next_frame_critical_time: float = 0.0  # Time within which, next audio chunk should be available for smooth play
+        last_frame_on: int  = int(time.time())
         while True:
             try:
+                if int(time.time()) - last_frame_on > 15:
+                    # If the thread does not send any more data in last 15 seconds try to terminate it
+                    stop_marker.set(True)
+                    thread.join(timeout=2)
+                    raise RuntimeError('Network error, no frame received for 15 seconds !')
                 if len(container) > 0:
+                    last_frame_on: int = int(time.time())
                     if next_frame_critical_time != 0.0:
                         if time.time() > next_frame_critical_time + 0.03:
                             estimated_playback_end_on += time.time() - next_frame_critical_time

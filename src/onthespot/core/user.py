@@ -30,10 +30,9 @@ class SpotifyUser:
         """
         self.__session_json_path: str = session_path  # Path where the session is saved
         self.uuid: str = ''
+        self.__session = session
         if session is None:
             self.init_session()
-        else:
-            self.__session = session
         self_api: str = 'https://api.spotify.com/v1/me'
         self_info: dict = json.loads(
             requests.get(self_api, headers=self.req_header_scoped('user-read-private')).content
