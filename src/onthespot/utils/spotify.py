@@ -21,7 +21,7 @@ requests.adapters.DEFAULT_RETRIES = 10
 def get_artist_albums(session, artist_id):
     logger.info(f"Get albums for artist by id '{artist_id}'")
     access_token = session.tokens().get("user-read-email")
-    resp = make_call(f'https://api.spotify.com/v1/artists/{artist_id}/albums', token=access_token)
+    resp = make_call(f'https://api.spotify.com/v1/artists/{artist_id}/albums?include_groups=album,single', token=access_token)
     return [resp['items'][i]['id'] for i in range(len(resp['items']))]
 
 
