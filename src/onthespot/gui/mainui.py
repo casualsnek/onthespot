@@ -725,7 +725,7 @@ class MainWindow(QMainWindow):
                     downloaded_types.append(d_key)
             if len(downloaded_types) != 0:
                 self.__splash_dialog.run(
-                    f"All all results of types {','.join(x for x in downloaded_types)} added to queue"
+                    f"Added all results of types {','.join(x for x in downloaded_types)} to queue"
                 )
 
     def rem_complete_from_table(self):
