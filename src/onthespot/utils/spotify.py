@@ -28,7 +28,7 @@ def get_artist_albums(session, artist_id):
 def get_playlist_data(session, playlist_id):
     logger.info(f"Get playlist dump for '{playlist_id}'")
     access_token = session.tokens().get("user-read-email")
-    resp = make_call(f'https://api.spotify.com/v1/playlists/{playlist_id}', token=access_token)
+    resp = make_call(f'https://api.spotify.com/v1/playlists/{playlist_id}', token=access_token, no_cache=True)
     return sanitize_data(resp['name']), sanitize_data(resp['owner']['display_name']), sanitize_data(resp['description']), resp['external_urls']['spotify']
 
 
@@ -422,23 +422,25 @@ def get_thumbnail(image_dict, preferred_size=22500):
             return images[size]
     return images[available_sizes[-1]] if len(available_sizes) > 0 else ""
 
-def make_call(url, token, params=None):
+def make_call(url, token, params=None, no_cache=False):
     if params is None:
         params = {}
-    request_key = md5(f'{url}-{";".join( str(key)+":"+str(value) for key, value in params.items() )}'.encode()).hexdigest()
-    req_cache_file = os.path.join(config.get('_cache_dir'), 'reqcache', request_key+'.otcache')
-    os.makedirs(os.path.dirname(req_cache_file), exist_ok=True)
-    if os.path.isfile(req_cache_file):
-        logger.debug(f'URL "{url}" cache found ! HASH: {request_key}')
-        try:
-            with open(req_cache_file, 'r', encoding='utf-8') as cf:
-                json_data = json.load(cf)
-            return json_data
-        except json.JSONDecodeError:
-            logger.error(f'URL "{url}" cache has invalid data, retring request !')
-            pass
-    logger.debug(f'URL "{url}" has cache miss ! HASH: {request_key}; Fetching data')
+    if not no_cache:
+        request_key = md5(f'{url}-{";".join( str(key)+":"+str(value) for key, value in params.items() )}'.encode()).hexdigest()
+        req_cache_file = os.path.join(config.get('_cache_dir'), 'reqcache', request_key+'.otcache')
+        os.makedirs(os.path.dirname(req_cache_file), exist_ok=True)
+        if os.path.isfile(req_cache_file):
+            logger.debug(f'URL "{url}" cache found ! HASH: {request_key}')
+            try:
+                with open(req_cache_file, 'r', encoding='utf-8') as cf:
+                    json_data = json.load(cf)
+                return json_data
+            except json.JSONDecodeError:
+                logger.error(f'URL "{url}" cache has invalid data, retring request !')
+                pass
+        logger.debug(f'URL "{url}" has cache miss ! HASH: {request_key}; Fetching data')
     response = requests.get(url, headers={"Authorization": "Bearer %s" % token}, params=params).text
-    with open(req_cache_file, 'w', encoding='utf-8') as cf:
-        cf.write(response)
+    if not no_cache:
+        with open(req_cache_file, 'w', encoding='utf-8') as cf:
+            cf.write(response)
     return json.loads(response)
