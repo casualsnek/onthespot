@@ -131,11 +131,12 @@ If you have ideas for improvement/features create an issue or join discord serve
 
 # 3. Basic Usage
 ## Getting started
-On your first launch of application you will get a warning that no spotify accounts are added, click ok and add your account(s) at the bottom of the application. After adding your accounts, close and restart the application. Having multiple accounts will let you download multiple songs at a time.
+When launching the application for the first time, you will get a warning that no spotify accounts are added. Dismiss the warning, and add your account(s) at the bottom of the configuration tab. Having multiple accounts will let you download multiple songs at a time.
 
 ## Searching/Downloading via query
-Click on 'Search' tab then enter your query and click search to search for songs/artists/albums/playlists and click download.
-You can download any media like 'Albums', 'Tracks', etc., that appear on the results table all at once by using the download buttons below the results table.
+In the 'Search' tab, you can enter your query click `search` to search for songs/artists/albums/playlists.
+You can then download media in the resulting list by clicking on the `download` button.
+Optionally, you can bulk download by clicking on any of the buttons on the below the table.
 *Note that Media Type other than 'Tracks' can take a little longer to parse and download. The application may appear to be frozen in this state !*
 
 ## Downloading by URL
@@ -144,7 +145,7 @@ You can also enter path of text file containing URL, and it will queue all url(s
 *Note that Media Type other than 'Tracks' can take a little longer to parse and download. Application may appear to be frozen in this state !*
 
 ## Download status
-The download status and progress can be viewed by navigating to 'Progress' tab. 
+The download status and progress can be viewed by navigating to the 'Progress' tab. 
 
 # 4. Configuration
 ### 4.1. General Configuration options
@@ -182,7 +183,8 @@ Variables can be used by enclosing them between `{}`. A few variables are availa
   - disccount : Total number of discs on the album this track is in
   - spotid : Spotify ID
   - Example: ```Song: {name} of album: {album} Released in {rel_year}```.
-  The value of variables with their description ending in * maybe empty in some cases. This can also be a path.
+  
+The value of variables with their description ending in * maybe empty in some cases. This can also be a path.
 
 - **Album directory name formatter**: 
 This option allows you set the naming scheme of the directories for downloaded tracks. 
@@ -196,20 +198,22 @@ Variables can be used by enclosing them between `{}`. A few variables are availa
   - genre : Genre of song *
   - label : Name of record label
   - Example: ```{artist}/{rel_year}/{album}```. 
-  The value of variables with their description ending in * maybe empty in some cases. This can be a path too.
+
+The value of variables with their description ending in * maybe empty in some cases. This can be a path too.
 
 - **Download chunk size**: 
 Size of chunks (bytes) used for downloading.
 
 - **Disable bulk download notice**: 
-Enabling this will disable popup dialog about status when using buld download buttons below the search results
+Enabling this will disable popup dialogs about status when using bulk downloads.
 
 - **Recoverable downloads retry delay**: 
 Time to wait before attempting another download after failed attempt.
 
 - **Skip bytes at the end (download end skip bytes)**: 
-Sometimes the last few bytes of a track can't be downloaded which causes 'PD Error' to show up which causes downloads to fail constantly, this sets the number of bytes to skip downloading if this happens.
-The value might change but the current working value is '167' bytes. If you get 'decode errors' or incomplete song downloads try setting it to 0.
+Sometimes the last few bytes of a track can't be downloaded, leading to a 'PD Error' which causes the downloads to fail constantly.
+This option sets the number of bytes to skip downloading when this happens.
+The value might change but the current working value is '167' bytes. If you get 'decode errors' or incomplete song downloads, try setting it to 0.
 
 - **Force Artist/Album dir for track/playlist items**: 
 If this is disabled the tracks downloaded will be placed in the root of download directory instead of artist/album directories.
@@ -220,7 +224,7 @@ Format of media you want your final music download to be in.
 Do not include '.' in it. This setting will be ignored while using the raw media download option.
 
 # 5. Issues
-Decode error: If you are receiving this error, your account might have got restricted. Wait some time or try a different account. The application may crash frequently as there is no proper exception handling yet. You can help by opening a new issue with the error message displayed in your console window after the application misbehaves.
+Decode error: If you are receiving this error, your account might have gotten restricted. Wait some time or try a different account. The application may crash frequently as there is no proper exception handling yet. You can help by opening a new issue with the error message displayed in your console window after the application misbehaves.
  
 # 6. Contributing/Supporting
 You can write code to include additional feature or bug fixes or make a issue regarding bugs and features or just spread the work about the application :)
