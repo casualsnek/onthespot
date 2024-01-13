@@ -281,7 +281,7 @@ def get_song_info(session, song_id):
     info = make_call(uri, token=token)
     credits_json = make_call(uri_credits, token=token)
     credits = {}
-    for credit_block in credits_json['roleCredits']:
+    for credit_block in credits_json.get('roleCredits', []):
         try:
             credits[credit_block['roleTitle'].lower()] = [
                 artist['name']
