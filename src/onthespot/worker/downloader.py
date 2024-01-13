@@ -119,8 +119,7 @@ class DownloadWorker(QObject):
                         track_id_str = song_info['scraped_song_id']
 
                     track_id = TrackId.from_base62(track_id_str)
-                    stream = session.content_feeder().load(
-                        track_id, VorbisOnlyAudioQuality(quality), False, None)
+                    stream = session.content_feeder().load(track_id, VorbisOnlyAudioQuality(quality), False, None)
                     os.makedirs(os.path.dirname(filename), exist_ok=True)
                     total_size = stream.input_stream.size
                     downloaded = 0

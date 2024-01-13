@@ -1,8 +1,7 @@
 @echo off
 echo  =^> Installing 'pyinstaller' via pip...
-pip install --upgrade pip
-pip install wheel
-pip install pyinstaller
+python -m pip install --upgrade pip
+pip install wheel pillow pyinstaller
 echo  =^> Installing dependencies pip...
 pip install winsdk
 pip install -r requirements.txt

@@ -577,7 +577,7 @@ class MainWindow(QMainWindow):
             return True
         else:
             if os.path.isfile(search_term):
-                with open(search_term, 'r') as sf:
+                with open(search_term, 'r', encoding='utf-8') as sf:
                     links = sf.readlines()
                     for link in links:
                         logger.info(f'Reading link "{link}" from file at "{search_term}"')
