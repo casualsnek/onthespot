@@ -19,7 +19,6 @@ class DownloaderService:
 
     @invoke_in_thread(max_concurrent_execs=1)
     def start(self):
-
         while True:
             if len(self.__threads) <= self.__config_service.get("max_concurrent_downloads"):
                 job: MediaDownloadJob = self.__queue.get()
