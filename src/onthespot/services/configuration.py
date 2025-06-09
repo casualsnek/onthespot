@@ -9,7 +9,7 @@ class ConfigurationService:
 
     DEFAULT: dict[str, Any] = {
         "version": "1.0.0",
-        "max_concurrent_downloads": 5,
+        "max_concurrent_sessions_use": 5,
         "max_concurrent_transcoders": 5,
         "download_directory": os.path.join(os.path.expanduser("~"), "Music"),
         "file_name_format": "{artist} - {title}",
