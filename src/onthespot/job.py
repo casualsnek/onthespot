@@ -1,46 +1,109 @@
+import os
 from enum import Enum
 from typing import Callable, Any, List
 from lmttfy import invoke_in_thread, ThreadedCall
+from otslib.exceptions import StreamReadException
+
+from .services.configuration import ConfigurationService
 from .services.sessions import SessionsService
 from otslib.core.__base__ import AbstractMediaItem
-from otslib.common.url import
-class DownloadStatus(Enum):
+from otslib.common.url import classify
+from otslib.common.utils import MutableBool
+from tempfile import NamedTemporaryFile
+
+class JobStatus(Enum):
     Pending = 0
     Downloading = 1
-    Error = 2
-    Success = 3
-    Cancelled = 4
+    Transcoding = 2
+    Error = 3
+    Success = 4
+    Cancelled = 5
 
 # This needs a lot of work
 class MediaDownloadJob:
     def __init__(self, media: AbstractMediaItem,
-                 on_progress: Callable,
-                 on_complete: Callable,
-                 on_error: Callable,
-                 after_fetch: Callable
+                 on_progress: Callable|None = None,
+                 on_complete: Callable|None = None,
+                 on_error: Callable|None = None,
+                 after_fetch: Callable|None = None
                  ):
         # Media metadata
-        self.__media = AbstractMediaItem
+        self.__media = media
 
         # Download state
         self.__bytes_downloaded = 0
-        self.__bytes_total = 0
-        self.__status = DownloadStatus.Pending
+        self.__bytes_total: int = media.media_stream.input_stream.size
+        self.__status = JobStatus.Pending
         self.__status_text = "Pending"
 
         # Download paths
-        self.___temp_download_path = None
-        self.__media_download_destination = None  # Set by transcoder
+        self.___temp_download_file = None
+        self.__media_download_destination: str|None = None  # Set by transcoder
 
         # Event handlers
-        self.__on_complete = on_complete  # When both download and transcoding are done
-        self.__on_progress = on_progress  # When download progress is updated
-        self.__on_error = on_error  # When download fails
-        self.__on_success = after_fetch  # When download succeeds and transcoding begins
+        self.__on_complete: List[Callable] = [on_complete] if on_complete else []  # When both download and transcoding are done
+        self.__on_progress: List[Callable] = [on_progress] if on_complete else []  # When download progress is updated
+        self.__on_error: List[Callable] = [on_error] if on_complete else [] # When download fails
+        self.__after_fetch: List[Callable] = [after_fetch] if on_complete else []  # When download succeeds and transcoding begins
 
     @invoke_in_thread(max_concurrent_execs=1)
-    def fetch_media(self, session_service: SessionsService) -> None|ThreadedCall:
-        pass
+    def fetch_media(self, session_service: SessionsService, config_service: ConfigurationService, stop_marker: MutableBool) -> None|ThreadedCall:
+        self.___temp_download_file = NamedTemporaryFile("wb", delete=True, delete_on_close=True)
+        chunk_size: int = config_service.get('download_chunk_size')
+        with session_service.rotated_session() as spotify_user:
+            self.__status_text = "Downloading"
+            self.__status = JobStatus.Downloading
+            self.__media.set_user(spotify_user)
+            # TODO: Maybe check if the media is playable before downloading
+            while self.__bytes_downloaded < self.__bytes_total and bool(stop_marker) is False:
+                data: bytes = self.__media.media_stream.input_stream.stream().read(chunk_size)
+                if len(data) != 0:
+                    self.___temp_download_file.write(data)
+                    self.__bytes_downloaded += len(data)
+                    for progress_handler in self.__on_progress:
+                        progress_handler(self)
+                if len(data) == 0 and chunk_size <= config_service.get('skip_bytes_at_the_end'):
+                    break
+                if (self.__bytes_total - self.__bytes_downloaded) < chunk_size:
+                    chunk_size = self.__bytes_total - self.__bytes_downloaded
+                if len(data) == 0 and chunk_size > config_service.get('skip_bytes_at_the_end'):
+                    self.__media.reset_stream()
+                    self.__status = JobStatus.Error
+                    self.__bytes_downloaded = 0
+                    self.__status_text = "Download Failed"
+                    e: Exception = StreamReadException(
+                        f'SRE000: Failed to stream for media "{self.__media.id}" properly.Might be due to parallel use of session. '
+                        f'{self.__bytes_total - self.__bytes_downloaded} bytes were not read ! Ignorable bytes: {config_service.get('skip_bytes_at_the_end')}'
+                    )
+                    for error_handler in self.__on_error:
+                        error_handler(self, e)
+            if bool(stop_marker):
+                self.__status = JobStatus.Cancelled
+                self.__status_text = "Download Cancelled"
+            if self.__bytes_downloaded >= self.__bytes_total or (self.__bytes_total - self.__bytes_downloaded) <= config_service.get('skip_bytes_at_the_end'):
+                self.__bytes_downloaded = self.__bytes_total
+                self.__status = JobStatus.Success
+                self.__status_text = "Download Successful"
+                for after_fetch_handler in self.__after_fetch:
+                    after_fetch_handler(self)
+
+
+    @invoke_in_thread(max_concurrent_execs=1)
+    def transcode(self, session_service: SessionsService, config_service: ConfigurationService,):
+        self.__status = JobStatus.Transcoding
+        self.__status_text = "Transcoding"
+        self.__media_download_destination = self.__media.copy_meta_to_str("STRING HERE", is_filepath=True, use_lookalikes_in_path=True)
+        os.makedirs(os.path.dirname(self.__media_download_destination), exist_ok=True)
+        if config_service.get('raw_download_enabled'):
+            with open(os.path.abspath(self.__media_download_destination), "wb") as raw_file:
+                raw_file.write(self.___temp_download_file.read())
+            self.___temp_download_file.close()
+        else:
+            pass
+
+    @property
+    def progress(self) -> float:
+        return (self.__bytes_downloaded / self.__bytes_total * 100) - 5 + 5 if self.__status == JobStatus.Success else 0
 
 class CollectionsDownloadJobMaker:
     def __init__(self, media_uuid: str, media_type: int,

@@ -4,6 +4,8 @@ import time
 from threading import Lock
 from typing import Any, Callable, Optional, Dict, Set, List
 from .configuration import ConfigurationService
+from otslib.core.user import SpotifyUser
+
 
 class SessionsService:
     """
@@ -33,7 +35,7 @@ class SessionsService:
             self.__lock = lock
             self.__current_uuid: Optional[str] = None
 
-        def __enter__(self) -> Any:
+        def __enter__(self) -> SpotifyUser:
             """
             Context manager entry point. Blocks until an available session is found.
 
