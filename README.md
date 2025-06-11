@@ -17,7 +17,7 @@ Make sure [ffmpeg](https://ffmpeg.org/), [python3](https://www.python.org/downlo
   1. Navigate to the onthespot directory ```cd onthespot```
   1. Install the package ```pip install -r requirements.txt```
   1. Navigate to source directory ```cd src```
-  1. Launch the application with ```python3 -m onthespot```
+  1. Launch the application with ```python3 portable.py```
 
 ## 1.2. Launch with installing - from source
 
