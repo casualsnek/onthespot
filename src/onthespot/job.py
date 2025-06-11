@@ -1,15 +1,16 @@
 import os
+import subprocess
 from enum import Enum
 from typing import Callable, Any, List
 from lmttfy import invoke_in_thread, ThreadedCall
 from otslib.exceptions import StreamReadException
-
+from .utils.utils import convert_media, set_audio_tags, set_music_thumbnail
 from .services.configuration import ConfigurationService
 from .services.sessions import SessionsService
 from otslib.core.__base__ import AbstractMediaItem
-from otslib.common.url import classify
 from otslib.common.utils import MutableBool
 from tempfile import NamedTemporaryFile
+from pathlib import Path
 
 class JobStatus(Enum):
     Pending = 0
@@ -38,7 +39,7 @@ class MediaDownloadJob:
 
         # Download paths
         self.___temp_download_file = None
-        self.__media_download_destination: str|None = None  # Set by transcoder
+        self.__media_download_destination: Path|None = None  # Set by transcoder
 
         # Event handlers
         self.__on_complete: List[Callable] = [on_complete] if on_complete else []  # When both download and transcoding are done
@@ -82,8 +83,8 @@ class MediaDownloadJob:
                 self.__status_text = "Download Cancelled"
             if self.__bytes_downloaded >= self.__bytes_total or (self.__bytes_total - self.__bytes_downloaded) <= config_service.get('skip_bytes_at_the_end'):
                 self.__bytes_downloaded = self.__bytes_total
-                self.__status = JobStatus.Success
-                self.__status_text = "Download Successful"
+                self.__status = JobStatus.Transcoding
+                self.__status_text = "Fetch Successful"
                 for after_fetch_handler in self.__after_fetch:
                     after_fetch_handler(self)
 
@@ -92,14 +93,33 @@ class MediaDownloadJob:
     def transcode(self, session_service: SessionsService, config_service: ConfigurationService,):
         self.__status = JobStatus.Transcoding
         self.__status_text = "Transcoding"
-        self.__media_download_destination = self.__media.copy_meta_to_str("STRING HERE", is_filepath=True, use_lookalikes_in_path=True)
+        self.__media_download_destination: Path|None = Path(
+            self.__media.copy_meta_to_str("STRING HERE", is_filepath=True, use_lookalikes_in_path=True)
+        ).resolve()
         os.makedirs(os.path.dirname(self.__media_download_destination), exist_ok=True)
-        if config_service.get('raw_download_enabled'):
-            with open(os.path.abspath(self.__media_download_destination), "wb") as raw_file:
-                raw_file.write(self.___temp_download_file.read())
-            self.___temp_download_file.close()
-        else:
-            pass
+        try:
+            if config_service.get('raw_download_enabled'):
+                with open(self.__media_download_destination, "wb") as raw_file:
+                    raw_file.write(self.___temp_download_file.read())
+                self.___temp_download_file.close()
+            else:
+                convert_media(config_service.get("ffmpeg_path"), self.___temp_download_file.name, self.__media_download_destination, config_service.get("ffmpeg_extra_args"))
+                set_music_thumbnail(self.__media_download_destination, self.__media.hq_thumbnail)
+                set_audio_tags(self.__media_download_destination, self.__media) # TODO: Fix it
+            self.__status = JobStatus.Success
+            self.__status_text = "Download Successful"
+            for progress_handler in self.__on_progress:
+                progress_handler(self)
+            for handler in self.__on_complete:
+                handler(self)
+        except Exception as e:
+            self.__status = JobStatus.Error
+            self.__status_text = str(e)
+            self.__media_download_destination = None
+            for handler in self.__on_error:
+                handler(self)
+            for progress_handler in self.__on_progress:
+                progress_handler(self)
 
     @property
     def progress(self) -> float:
