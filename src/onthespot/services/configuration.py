@@ -1,5 +1,6 @@
 import json
 import os.path
+import shutil
 from os import PathLike
 import logging
 from typing import Any, Callable, Tuple
@@ -14,13 +15,14 @@ class ConfigurationService:
         "download_directory": os.path.join(os.path.expanduser("~"), "Music"),
         "file_name_format": "{artist} - {title}",
         "target_format": "mp3",
-        "ffmpeg_path": "ffmpeg",
+        "ffmpeg_path": shutil.which("ffmpeg") if shutil.which("ffmpeg") else "ffmpeg",
         "embed_metadata": True,
         "download_synced_lyrics": True,
         "download_unsynced_art": True,
         "max_retries": 3,
         "enable_m3u_playlist": True,
-        "m3u_playlist_directory": os.path.join(os.path.expanduser("~"), "Music", "Playlists"),
+        "m3u_playlist_directory": os.path.join(os.path.expanduser("~"), "Music", "Playlists"),  # TODO: Allow custom formatter for Meu files
+        "m3u_playlist_formatter": "{playlist_name} by {author_name)", #TODO: Use valid formatter by default
         "use_alternate_formatter_for_playlist": False,
         "playlist_alternate_formatter": "{artist} - {title}",
         "download_chunk_size": 1024,
@@ -30,6 +32,7 @@ class ConfigurationService:
         "nowplaying_auto_download": False,
         "raw_download_enabled": False,
         "DEBUG_FORCE_OTSLIB_MEDIA_STREAM": False,
+        "audio_tags_seperator": ";",
         "accounts": {
                 # "uuid": {
                 #       "username": "username",
@@ -50,7 +53,7 @@ class ConfigurationService:
         self.reload()
         logging.info(f"Config loaded from \"{config_path}\"")
 
-    def get(self, key: str) -> Any:
+    def get(self, key: str, default: Any = None) -> Any:
         return self.__config[key] if key in self.__config else ConfigurationService.DEFAULT[key]
 
     def set(self, key: str, new_value: Any) -> Tuple[str, Any]:

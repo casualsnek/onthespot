@@ -20,11 +20,11 @@ def set_audio_tags(filename, media: AbstractMediaItem, seperator: str):
     #     )
     type_ = 'track'
     tags = music_tag.load_file(filename)
-    # TODO: Fix metadata
+    metadata = media.metadata
     for key in metadata.keys():
         value = metadata[key]
         if key == 'artists':
-            tags['artist'] = conv_artist_format(value, )
+            tags['artist'] = conv_artist_format(value, seperator)
         elif key in ['name', 'track_title', 'tracktitle']:
             tags['tracktitle'] = value
         elif key in ['album_name', 'album']:
@@ -35,12 +35,12 @@ def set_audio_tags(filename, media: AbstractMediaItem, seperator: str):
             tags['discnumber'] = value
         elif key in ['track_number', 'tracknumber']:
             tags['tracknumber'] = value
-        elif key == 'lyrics':
+        elif key == 'lyrics':  # TODO: This may be missing on current otslib implementation
             tags['lyrics'] = value
         elif key == 'genre':
             if 'Podcast' in value or 'podcast' in value:
                 type_ = 'episode'
-            tags['genre'] = conv_artist_format(value)
+            tags['genre'] = conv_artist_format(value, seperator)
         elif key in ['total_tracks', 'totaltracks']:
             tags['totaltracks'] = value
         elif key in ['total_discs', 'totaldiscs', 'total_disks', 'totaldisks']:
