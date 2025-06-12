@@ -231,7 +231,10 @@ class CollectionsDownloadJobMaker:
             return
         with self.__lock:
             all_done = len(self.__failed_jobs) + len(self.__succeed_jobs) == len(self.__all_jobs)
-            playlist_file: str = os.path.join(self.__config_service.get("m3u_playlist_directory"), self.__config_service.get("m3u_playlist_formatter"))
+            playlist_file: str = os.path.join(
+                self.__config_service.get("m3u_playlist_directory"),
+                self.__collection.copy_meta_to_str(self.__config_service.get("m3u_playlist_formatter"))
+                )
             playlist_file = playlist_file if playlist_file.endswith(".m3u") else playlist_file + ".m3u"
             os.makedirs(os.path.dirname(playlist_file), exist_ok=True)
             if all_done:
