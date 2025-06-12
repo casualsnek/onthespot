@@ -2,7 +2,6 @@ import threading
 import time
 from threading import Lock
 from typing import List, Callable, Dict, Set
-
 from .configuration import ConfigurationService
 from .sessions import SessionsService
 from queue import Queue

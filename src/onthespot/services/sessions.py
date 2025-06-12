@@ -110,7 +110,7 @@ class SessionsService:
 
     def add_session(self, account_uuid: str, username: str, session_path: str) -> None:
         """
-        Add a new session to the service.
+        Add a new session to the pooling service. Mostly passed from config file
 
         Args:
             account_uuid: Unique identifier for the account
@@ -125,19 +125,26 @@ class SessionsService:
                 f"Session file '{session_path}' not found for user "
                 f"'{username}' with uuid '{account_uuid}'"
             )
-
-        loaded_session: Any = None  # TODO: Implement actual session loading
+        loaded_session: SpotifyUser|None = None
+        error: str|None = None
+        try:
+            loaded_session: SpotifyUser = SpotifyUser(
+                session_path=session_path
+            )
+        except Exception as e:
+            error = "Loading Failed"
 
         with self.__sessions_lock:
             self.__sessions[account_uuid] = {
                 "username": username,
                 "session_path": session_path,
-                "session": loaded_session
+                "session": loaded_session,
+                "error": error,
             }
 
         # Notify handlers
         for handler in self.__on_added_handlers:
-            handler(account_uuid, username, session_path, loaded_session)
+            handler(account_uuid, self.__sessions[account_uuid])
 
     def remove_session(self, account_uuid: str) -> None:
         """
