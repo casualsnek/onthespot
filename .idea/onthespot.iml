@@ -10,4 +10,7 @@
     <orderEntry type="jdk" jdkName="Python 3.13 (onthespot)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
+  <component name="PackageRequirementsSettings">
+    <option name="versionSpecifier" value="Don't specify version" />
+  </component>
 </module>
