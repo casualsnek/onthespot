@@ -205,26 +205,21 @@ class SessionsService:
                 )
             self.__parsing_account_uuid = account_uuid
 
-    def get_parsing_session(self) -> Dict[str, Any]:
+    def get_parsing_session(self) -> SpotifyUser:
         """
         Get the preferred parsing session.
 
-        Returns:
-            Dictionary containing session information
+        SpotifyUser Instance of Parsing Account
 
         Raises:
             RuntimeError: If no sessions are available
         """
-        with self.__sessions_lock:
-            if not self.__sessions:
-                raise RuntimeError("No saved sessions loaded")
-
-            if (self.__parsing_account_uuid is None or
-                    self.__parsing_account_uuid not in self.__sessions):
-                # Return first available session if preferred isn't set
-                return self.__sessions[next(iter(self.__sessions))]
-
-            return self.__sessions[self.__parsing_account_uuid]
+        if not self.__sessions:
+            raise RuntimeError("No saved sessions loaded")
+        if self.__parsing_account_uuid is None or self.__parsing_account_uuid not in self.__sessions:
+            # Return first available session if preferred isn't set
+            return self.__sessions[next(iter(self.__sessions))]["session"]
+        return self.__sessions[self.__parsing_account_uuid]["session"]
 
     def on_add(self, handler: Callable) -> None:
         """Register a handler for session addition events."""

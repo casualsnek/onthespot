@@ -1,4 +1,7 @@
+import asyncio
 import os
+import platform
+import re
 import subprocess
 from pathlib import Path
 import music_tag
@@ -11,7 +14,6 @@ def conv_artist_format(artists, seperator: str):
     for artist in artists:
         formatted += artist + seperator +" "
     return formatted[:-2].strip()
-
 
 def set_audio_tags(filename, media: AbstractMediaItem, seperator: str):
     # logger.info(
@@ -49,7 +51,6 @@ def set_audio_tags(filename, media: AbstractMediaItem, seperator: str):
             tags['isrc'] = value
     tags['comment'] = f'id[spotify.com:{type_}:{media.id}]'
     tags.save()
-
 
 def set_music_thumbnail(filename, image: bytes):
     # logger.info(f"Set thumbnail for audio media at '{filename}' with '{image_url}'")
