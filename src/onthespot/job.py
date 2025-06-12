@@ -196,13 +196,15 @@ class CollectionsDownloadJobMaker:
                  on_progress: List[Callable] | None = None,
                  on_complete: List[Callable] | None = None,
                  on_error: List[Callable[[MediaDownloadJob, Exception, ...], Any]] | None = None,
-                 after_fetch: List[Callable]|None = None
+                 after_fetch: List[Callable]|None = None,
+                 config_service: ConfigurationService|None = None
                  ):
         self.__collection = collection
         self.__succeed_jobs: List[MediaDownloadJob] = []
         self.__failed_jobs: List[MediaDownloadJob] = []
         self.__all_jobs: List[MediaDownloadJob] = []
         self.__lock  = Lock()
+        self.__config_service = config_service
         # Event handlers
         self.on_complete: List[Callable] = on_complete if on_complete else []  # When both download and transcoding are done
         self.on_progress: List[Callable] = on_progress if on_complete else []  # When download progress is updated
@@ -217,13 +219,29 @@ class CollectionsDownloadJobMaker:
         for item in self.__collection.items:
             job: MediaDownloadJob = MediaDownloadJob(item, on_progress=self.on_progress, on_complete=self.on_complete, on_error=self.on_error, after_fetch=self.after_fetch)
             job.part_of_playlist = True
-            job.on_complete.extend([lambda j: self.__succeed_jobs.append(j), lambda j, e: self.try_make_m3u()])
-            job.on_error.extend([lambda j, e: self.__failed_jobs.append(j), lambda j, e: self.try_make_m3u()])
+            job.on_complete.extend([lambda j: self.__succeed_jobs.append(j), lambda j, e: self.__try_make_m3u()])
+            job.on_error.extend([lambda j, e: self.__failed_jobs.append(j), lambda j, e: self.__try_make_m3u()])
             self.__all_jobs.append(job)
         return self.__all_jobs
 
-    def try_make_m3u(self):
+    def __try_make_m3u(self):
+        if self.__config_service is None:
+            return
+        if self.__config_service.get("enable_m3u_playlist", False) is False:
+            return
         with self.__lock:
             all_done = len(self.__failed_jobs) + len(self.__succeed_jobs) == len(self.__all_jobs)
+            playlist_file: str = os.path.join(self.__config_service.get("m3u_playlist_directory"), self.__config_service.get("m3u_playlist_formatter"))
+            playlist_file = playlist_file if playlist_file.endswith(".m3u") else playlist_file + ".m3u"
+            os.makedirs(os.path.dirname(playlist_file), exist_ok=True)
             if all_done:
-                pass
+                with open(playlist_file, "w", encoding="utf-8") as m3u_file:
+                    m3u_file.write("#EXTM3U\n")
+                    for i in range(len(self.__all_jobs)):
+                        job: MediaDownloadJob = self.__all_jobs[i]
+                        if job not in self.__succeed_jobs:
+                            continue
+                        m3u_file.write(
+                                f'#EXTINF:{i+1}, {job.media.meta_name} BY {job.media.meta_artists[0]}\n'
+                                f'{job.destination}\n'
+                            )

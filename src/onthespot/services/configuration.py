@@ -53,7 +53,7 @@ class ConfigurationService:
         self.reload()
         logging.info(f"Config loaded from \"{config_path}\"")
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: str, default: Any = None) -> str|Any:
         return self.__config[key] if key in self.__config else ConfigurationService.DEFAULT[key]
 
     def set(self, key: str, new_value: Any) -> Tuple[str, Any]:
