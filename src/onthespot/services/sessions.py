@@ -1,10 +1,15 @@
 # TODO: Replace "Any" Type with more specific types
+import json
 import os
+import tempfile
 import time
+from tempfile import TemporaryDirectory
 from threading import Lock
 from typing import Any, Callable, Optional, Dict, Set, List
+from lmttfy import invoke_in_thread, ThreadedCall
 from .configuration import ConfigurationService
 from otslib.core.user import SpotifyUser
+from otslib.common.utils import MutableBool
 
 
 class SessionsService:
@@ -91,10 +96,12 @@ class SessionsService:
         self.__sessions: Dict[str, Any] = {}
         self.__on_added_handlers: List[Callable] = []
         self.__on_removed_handlers: List[Callable] = []
-        self.__parsing_account_uuid = config_service.get("preferred_parsing_account")
-        self.__config = config_service
+        self.__parsing_account_uuid:str = config_service.get("preferred_parsing_account")
+        self.__config: ConfigurationService = config_service
+        self.__new_login_handlers: List[Callable] = []
         self.__sessions_in_use: Set[str] = set()
         self.__sessions_lock = Lock()  # For thread-safe operations
+        self.__zc_stop_listening: MutableBool = MutableBool(True)
 
         # Register config change handler for preferred account
         self.__config.on_change(
@@ -220,6 +227,31 @@ class SessionsService:
             # Return first available session if preferred isn't set
             return self.__sessions[next(iter(self.__sessions))]["session"]
         return self.__sessions[self.__parsing_account_uuid]["session"]
+
+    @invoke_in_thread(max_concurrent_execs=1)
+    def get_login_zc(self) -> ThreadedCall|dict|None:
+        self.__zc_stop_listening = MutableBool(False)
+        temp_dir: TemporaryDirectory = tempfile.TemporaryDirectory()
+        SpotifyUser.from_zeroconf(
+            save_session=True,
+            session_path=os.path.join(temp_dir.name, "session.json"),
+            cancel=self.__zc_stop_listening,
+            no_profile=True
+        )
+        credential_json = {}
+        if not os.path.isfile(os.path.join(temp_dir.name, "session.json")):
+            self.__zc_stop_listening = True
+            return None
+        with open(os.path.join(temp_dir.name, "session.json"), "r") as f:
+            credential_json = json.load(f)
+        temp_dir.cleanup()
+        self.__zc_stop_listening = True
+        return credential_json
+
+    def login_zc_server(self, stop=False):
+        if stop:
+            self.__zc_stop_listening = MutableBool(True)
+        return self.__zc_stop_listening
 
     def on_add(self, handler: Callable) -> None:
         """Register a handler for session addition events."""
