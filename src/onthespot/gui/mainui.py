@@ -136,9 +136,37 @@ class MainWindow(QMainWindow):
         self.__media_parser_worker.enqueue.connect(self.__add_item_to_downloads)
         self.__media_parser_thread.start()
 
+        # Create path to dark_theme
+        self.dark_theme_path = os.path.join(config.app_root,'resources', 'main_window_dark_theme.qss')
+        # Create button and add to the interface
+        self.toggle_theme_button.clicked.connect(self.toggle_theme)
+        # Set theme from config
+        self.theme = config.get("theme")
+        if self.theme == "Dark":
+          with open(self.dark_theme_path, 'r') as f:
+              dark_theme = f.read()
+              self.setStyleSheet(dark_theme)
+        logger.info(f"Set theme {self.theme}!")
+
         # Set the table header properties
         self.set_table_props()
         logger.info("Main window init completed !")
+
+    def load_dark_theme(self):
+        with open(self.dark_theme_path, 'r') as f:
+            dark_theme = f.read()
+            self.setStyleSheet(dark_theme)
+        self.theme = "Dark"
+
+    def load_light_theme(self):
+        self.setStyleSheet("")  # set empty style for light theme
+        self.theme = "Light"
+
+    def toggle_theme(self):
+        if self.theme == "Light":
+            self.load_dark_theme()
+        elif self.theme == "Dark":
+            self.load_light_theme()
 
     def bind_button_inputs(self):
         # Connect button click signals
@@ -495,6 +523,7 @@ class MainWindow(QMainWindow):
         config.set_('max_retries', self.inp_max_retries.value())
         config.set_('disable_bulk_dl_notices', self.inp_disable_bulk_popup.isChecked())
         config.set_('playlist_track_force_album_dir', self.inp_force_track_dir.isChecked())
+        config.set_('theme', self.theme)
         if 0 < self.inp_max_search_results.value() <= 50:
             config.set_('max_search_results', self.inp_max_search_results.value())
         else:

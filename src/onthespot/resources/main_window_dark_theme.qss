@@ -1,0 +1,59 @@
+QWidget {
+   background-color: #333;
+   color: #ccc;
+}
+QPushButton {
+   background-color: #555;
+   color: white;
+   border: 1px solid #444;
+   border-radius: 5px;
+   padding: 5px;
+}
+QPushButton:hover {
+   background-color: #666;
+   color: white;
+}
+QPushButton:pressed {
+   background-color: #777;
+   color: white;
+}
+QLineEdit {
+   background-color: #222;
+   color: #aaa;
+   border: 1px solid #444;
+}
+QTableWidget {
+   background-color: #333;
+   color: #ccc;
+}
+QTableWidget QHeaderView::section {
+   background-color: #666;
+   color: #ccc;
+}
+QTabWidget::pane {
+   border-top: 2px solid #555;
+}
+QTabBar::tab {
+   background: #333;
+   color: #ccc;
+   padding: 3px;
+   border: 1px solid #444;
+   border-bottom-color: #333;
+   padding-left: 14px;
+   padding-right: 14px;
+}
+QTabBar::tab:selected, QTabBar::tab:hover {
+   background: #555;
+   color: #fff;
+}
+QTabBar::tab:selected {
+   border-color: #666;
+   border-bottom-color: #555;
+}
+QTableWidget QHeaderView::section:first {
+    background-color: #666;
+    color: #ccc;
+}
+QTableCornerButton::section {
+    background-color: #666;
+}

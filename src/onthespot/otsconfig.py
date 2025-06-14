@@ -44,7 +44,8 @@ class Config:
             "show_search_thumbnails": 1, # Show thumbnails in search view
             "search_thumb_height": 60, # Thumbnail height ( they are of equal width and height )
             "metadata_seperator": ";", # Seperator used for metadata fields that have multiple values
-            "accounts": [] # Saved account information
+            "accounts": [], # Saved account information
+            "theme": "Light" # Light\Dark
         }
         if os.path.isfile(self.__cfg_path):
             self.__config = json.load(open(cfg_path, "r"))

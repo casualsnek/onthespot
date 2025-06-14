@@ -1,0 +1,19 @@
+QDialog {
+   background-color: #222;
+   color: white;
+}
+QPushButton {
+   background-color: #555;
+   color: white;
+   border-radius: 5px;
+   padding: 5px;
+   border: 1px solid #fff;
+}
+QPushButton:hover {
+   background-color: #666;
+   color: white;
+}
+QLabel {
+   color: white;
+   font-size: 14px;
+}

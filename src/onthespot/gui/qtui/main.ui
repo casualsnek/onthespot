@@ -903,6 +903,13 @@
                   </widget>
                  </item>
                  <item>
+                  <widget class="QPushButton" name="toggle_theme_button">
+                   <property name="text">
+                    <string>Dark/Light theme</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
                   <widget class="QPushButton" name="btn_save_config">
                    <property name="text">
                     <string>Save settings</string>

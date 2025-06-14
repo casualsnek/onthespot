@@ -33,6 +33,7 @@ if [ -f "ffbin_mac/ffmpeg" ]; then
     pyinstaller --windowed \
                 --add-data="src/onthespot/gui/qtui/*.ui:onthespot/gui/qtui" \
                 --add-data="src/onthespot/resources/*.png:onthespot/resources" \
+                --add-data="src/onthespot/resources/*.qss:onthespot/resources" \
                 --add-binary="ffbin_mac/*:onthespot/bin/ffmpeg" \
                 --paths="src/onthespot" \
                 --name="onthespot_mac_ffm" \
@@ -43,6 +44,7 @@ else
     pyinstaller --windowed \
                 --add-data="src/onthespot/gui/qtui/*.ui:onthespot/gui/qtui" \
                 --add-data="src/onthespot/resources/*.png:onthespot/resources" \
+                --add-data="src/onthespot/resources/*.qss:onthespot/resources" \
                 --paths="src/onthespot" \
                 --name="onthespot_mac" \
                 --icon="src/onthespot/resources/icon.png" \

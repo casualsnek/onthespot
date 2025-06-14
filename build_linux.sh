@@ -32,6 +32,7 @@ if [ -f "ffbin_nix/ffmpeg" ]; then
     pyinstaller --onefile \
                 --add-data="src/onthespot/gui/qtui/*.ui:onthespot/gui/qtui" \
                 --add-data="src/onthespot/resources/*.png:onthespot/resources" \
+                --add-data="src/onthespot/resources/*.qss:onthespot/resources" \
                 --add-binary="ffbin_nix/*:onthespot/bin/ffmpeg" \
                 --paths="src/onthespot" \
                 --name="onthespot_linux_ffm" \
@@ -42,6 +43,7 @@ else
     pyinstaller --onefile \
                 --add-data="src/onthespot/gui/qtui/*.ui:onthespot/gui/qtui" \
                 --add-data="src/onthespot/resources/*.png:onthespot/resources" \
+                --add-data="src/onthespot/resources/*.qss:onthespot/resources" \
                 --paths="src/onthespot" \
                 --name="onthespot_linux" \
                 --icon="src/onthespot/resources/icon.png" \
