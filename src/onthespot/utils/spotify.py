@@ -214,7 +214,11 @@ def convert_audio_format(filename, quality):
         logger.info(
             f'Converting media with ffmpeg. Built commandline {command}'
             )
-        subprocess.check_call(command, shell=False)
+        # Run subprocess with CREATE_NO_WINDOW flag on Windows
+        if os.name == 'nt':
+            subprocess.check_call(command, shell=False, creationflags=subprocess.CREATE_NO_WINDOW)
+        else:
+            subprocess.check_call(command, shell=False)
         os.remove(temp_name)
     else:
         raise FileNotFoundError
