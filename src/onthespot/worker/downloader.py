@@ -55,7 +55,7 @@ class DownloadWorker(QObject):
                     artist=_artist,
                     rel_year=song_info['release_year'],
                     album=song_info['album_name'],
-                    genre=song_info['genre'][0] if len(song_info['genre']) > 0 else '',
+                    genre=song_info['genre'][0] if len(song_info['genre']) > 0 else 'unknown',
                     label=song_info['label'],
                     trackcount=song_info['total_tracks'],
                     playlist_name=playlist_name,
